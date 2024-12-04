@@ -46,3 +46,9 @@ void free_regions(void) {
     free(to_free);
   }
 }
+
+char *gc_strndup(const char *str, size_t length) {
+  char *mem = (char*)allocate_space(length + 1);
+  return memmove(&mem[0], &str[0], length);
+}
+
