@@ -9,6 +9,8 @@
 #include <unistd.h>
 #include <wait.h>
 
+#include "memory.h"
+
 #define ARGV_MAX 256
 
 #define JSTAT_Running 1
@@ -67,7 +69,7 @@ Command *add_command(Command *head, Command *new_cmd) {
 }
 
 void add_argv(Command *cmd, const char *arg) {
-  cmd->argv[cmd->argc++] = strdup(arg);
+  cmd->argv[cmd->argc++] = gc_strndup(arg, strlen(arg));
 }
 
 Job *find_job_by_id(int job_id) {
@@ -94,7 +96,7 @@ Job *add_job(pid_t pgid, const char *command, int status) {
   Job *job = malloc(sizeof(Job));
   job->job_id = rand();
   job->pgid = pgid;
-  job->command = strdup(command);
+  job->command = gc_strndup(command, strlen(command));
   job->status = status;
   job->next = job_list;
   job_list = job;
