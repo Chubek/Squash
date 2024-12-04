@@ -1,8 +1,10 @@
-#include "parser.tab.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#define ALIGNMENT 8
+#define DEFAULT_REGION_SIZE 8096
 
 typedef struct Arena Arena;
 
@@ -29,11 +31,11 @@ Arena *push_region(size_t size) {
 }
 
 void *allocate_space(size_t size) {
-  if ((main_arena->total - main_arena->used) < size)
-    push_region();
+  if (main_arena == NULL || (main_arena->total - main_arena->used) < size)
+    push_region(DEFAULT_REGION_SIZE);
 
-  void *mem_space = (void *)main_arena->mem[main_arena->used + 1];
-  main_arena->used += size + 1;
+  void *mem_space = (void *)&main_arena->mem[main_arena->used];
+  main_arena->used += size + (ALIGNMENT % size);
 
   return mem_space;
 }
@@ -48,7 +50,11 @@ void free_regions(void) {
 }
 
 char *gc_strndup(const char *str, size_t length) {
-  char *mem = (char*)allocate_space(length + 1);
+  char *mem = (char *)allocate_space(length + 1);
   return memmove(&mem[0], &str[0], length);
 }
 
+void *gc_memdup(const void *mem, size_t size) {
+  void *memdup = allocate_space(size);
+  return memmove(memdup, mem, size);
+}
