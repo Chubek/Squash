@@ -3,10 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "types.h"
+#include "memory.h"
+
 #define ALIGNMENT 8
 #define DEFAULT_REGION_SIZE 8096
-
-typedef struct Arena Arena;
 
 static struct Arena {
   size_t total;

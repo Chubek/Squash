@@ -9,27 +9,11 @@
 #include <unistd.h>
 #include <wait.h>
 
+#include "types.h"
+#include "job.h"
+#include "lexer.h"
 #include "memory.h"
-
-#define ARGV_MAX 256
-
-#define JSTAT_Running 1
-#define JSTAT_Stopped 2
-#define JSTAT_Done 3
-
-typedef struct Job {
-  int job_id;
-  pid_t pgid;
-  char *command;
-  int status;
-  struct Job *next;
-} Job;
-
-typedef struct Command {
-  int argc;
-  const char *argv[ARGV_MAX];
-  struct Command *next;
-} Command;
+#include "parser.tab.h"
 
 static Job *job_list = NULL;
 static struct termios original_termios;
@@ -155,13 +139,9 @@ void free_all_commands(Command *cmds) {
   Command **current = &cmds;
 
   while (*current) {
-    Command *to_be_freed = *current;
-    *current = to_be_freed->next;
-    for (size_t i = 0; i < to_be_freed->argc; i++) {
-      if (to_be_freed->argv[i] != NULL)
-        free((void *)to_be_freed->argv[i]);
-    }
-    free(to_be_freed);
+    Command *to_free = *current;
+    *current = to_free->next;
+    free(to_free);
   }
 }
 
@@ -192,7 +172,7 @@ void handle_sigint(int _) { fprintf(stderr, "\nSIGINT thrown\n"); }
 void handle_terminal_signals(void) {
   struct sigaction sa;
 
-  sa.sig_handler = SIG_IGN;
+  sa.sa_handler = SIG_IGN;
   sigaction(SIGTTOU, &sa, NULL);
   sigaction(SIGTTIN, &sa, NULL);
   sigaction(SIGSTOP, &sa, NULL);
@@ -301,15 +281,43 @@ void execute_bg(int job_id) {
 }
 
 int main(int argc, char **argv) {
-  Command *cmd = new_command();
-  add_argv(cmd, "echo");
-  add_argv(cmd, "foo");
-  add_argv(cmd, "bar");
-  add_argv(cmd, "baz");
-  Command *cmd2 = new_command();
-  add_argv(cmd2, "tee");
-  add_command(cmd, cmd2);
-  launch_job(cmd, false);
+  handle_terminal_signals();
+  enable_raw_mode();
+
+  for (;;) {
+    printf("squash>");
+
+    char inchr = 0, *prompt = calloc(1, BUFSIZE);
+    size_t cursor = 0, total = BUFSIZE;
+
+    while (read(STDIN_FILENO, &inchr, 1) == 1 && inchr != '\x04') {
+      if (inchr == '\r' || inchr == '\n')
+	break;
+
+      prompt[cursor++] = inchr;
+      if (((cursor + 1) % BUFSIZE) == 0) {
+        total += BUFSIZE;
+        void *maybe_null = realloc(prompt, total);
+        if (maybe_null == NULL) {
+          perror("realloc");
+          break;
+        } else {
+          prompt = maybe_null;
+        }
+      }
+    }
+
+    prompt[cursor] = '\n';
+    YY_BUFFER_STATE buffer = yy_scan_string(prompt);
+
+    while (yyparse())
+      ;
+
+    yy_delete_buffer(buffer);
+    free(prompt);
+  }
+
   free_all_jobs();
-  return 22;
+  free_regions();
+  disable_raw_mode();
 }

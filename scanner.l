@@ -14,12 +14,12 @@ opt_ws [ \t\n\r]*
 
 %%
 
-[ \t\n\r]+				;
+[ \t]+				;
 {ident}/"="	     { yylval.idval = gc_strndup(yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
 "$"{ident}           { yylval.idval = gc_strndup(yytext, yyleng);
 			return DOLLAR_IDENTIFIER; 	}
-{ndigit}{zdigit}*    { yylval.numval = gc_strndup(yytext, yyleng);
+[0-9]+		     { yylval.numval = strtol(gc_strndup(yytext, yyleng), NULL, 10);
 			return INTEGER_NUMBER;     	}
 [^ \t]+		     { yylval.wordval = gc_strndup(yytext, yyleng);
 			return WORD; 			}
