@@ -57,3 +57,4 @@ lex.yy.c
 parser.tab.h
 parser.c
 y.tab.c
+lexer.h
