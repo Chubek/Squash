@@ -52,5 +52,8 @@ Mkfile.old
 dkms.conf
 
 # Lex/yacc
-*yy*.h
-*yy*.c
+
+lex.yy.c
+parser.tab.h
+parser.c
+y.tab.c
