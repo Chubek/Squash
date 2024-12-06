@@ -15,17 +15,19 @@
 #include "memory.h"
 #include "parser.tab.h"
 
+bool do_exit = false;
+
 static Job *job_list = NULL;
 static struct termios original_termios = {0};
 
 void enable_raw_mode(void) {
-  struct termios raw = {0};
+  static struct termios raw = {0};
 
   tcgetattr(STDIN_FILENO, &original_termios);
 
   raw = original_termios;
-  raw.c_lflag = ICANON | ECHO | ECHONL;
-  raw.c_cc[VMIN] = 1;
+  raw.c_lflag = ICANON | ECHO | ECHOE;
+  raw.c_cc[VMIN] = 2;
   raw.c_cc[VTIME] = 0;
 
   tcsetattr(STDIN_FILENO, TCSAFLUSH, &raw);
@@ -259,19 +261,23 @@ void execute_bg(int job_id) {
 }
 
 int main(int argc, char **argv) {
-  yydebug = 1;
+  atexit(free_regions);
   handle_terminal_signals();
   enable_raw_mode();
 
   for (;;) {
     printf("squash> ");
-    fflush(stdin);
+    fflush(stdout);
 
     int inchr = 0;
     char *prompt = allocate_space(LINE_SIZE);
     size_t cursor = 0;
 
-    while (read(STDIN_FILENO, &inchr, 1) 
+    while (read(STDIN_FILENO, &inchr, 1)
+		&& inchr != '\x04'
+		&& inchr != '\x03'
+		&& inchr != '\x1a'
+		&& inchr != '\x00'
 		&& inchr != '\r' 
 		&& inchr != '\n') {
       prompt[cursor++] = inchr;
@@ -289,10 +295,13 @@ int main(int argc, char **argv) {
 
     yy_delete_buffer(buffer);
 
-    if (inchr == '\x04')
+    if (inchr == '\x04' 
+	|| inchr == '\x03' 
+	|| inchr == '\x1a'
+	|| inchr == '\x00'
+	|| do_exit == true)
 	break;
   }
 
-  free_regions();
   disable_raw_mode();
 }
