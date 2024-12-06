@@ -16,15 +16,15 @@
 #include "parser.tab.h"
 
 static Job *job_list = NULL;
-static struct termios original_termios;
+static struct termios original_termios = {0};
 
 void enable_raw_mode(void) {
-  struct termios raw;
+  struct termios raw = {0};
 
   tcgetattr(STDIN_FILENO, &original_termios);
 
   raw = original_termios;
-  raw.c_iflag = ~(ICANON | ECHO);
+  raw.c_lflag = ICANON | ECHO | ECHONL;
   raw.c_cc[VMIN] = 1;
   raw.c_cc[VTIME] = 0;
 
@@ -36,7 +36,7 @@ void disable_raw_mode(void) {
 }
 
 Command *new_command(void) {
-  Command *cmd = malloc(sizeof(Command));
+  Command *cmd = allocate_space(sizeof(Command));
   cmd->argc = 0;
   for (size_t i = 0; i < ARGV_MAX; i++)
     cmd->argv[i] = NULL;
@@ -77,7 +77,7 @@ int get_job_id(pid_t pgid) {
 }
 
 Job *add_job(pid_t pgid, const char *command, int status) {
-  Job *job = malloc(sizeof(Job));
+  Job *job = allocate_space(sizeof(Job));
   job->job_id = rand();
   job->pgid = pgid;
   job->command = gc_strndup(command, strlen(command));
@@ -102,10 +102,7 @@ void remove_job(pid_t pgid) {
   Job **current = &job_list;
   while (*current) {
     if ((*current)->pgid == pgid) {
-      Job *to_free = *current;
       *current = (*current)->next;
-      free(to_free->command);
-      free(to_free);
       return;
     }
     current = &(*current)->next;
@@ -124,24 +121,6 @@ void kill_job_by_status(int status) {
     if ((*current)->status == status)
       kill_job((*current)->job_id, SIGINT);
     current = &(*current)->next;
-  }
-}
-
-void free_all_jobs(void) {
-  Job **current = &job_list;
-  while (*current) {
-    free(*current);
-    current = &(*current)->next;
-  }
-}
-
-void free_all_commands(Command *cmds) {
-  Command **current = &cmds;
-
-  while (*current) {
-    Command *to_free = *current;
-    *current = to_free->next;
-    free(to_free);
   }
 }
 
@@ -259,7 +238,6 @@ void launch_job(Command *cmds, bool background) {
     fprintf(stderr, "[%d] %d\n", job->job_id, pgid);
   }
 
-  free_all_commands(cmds);
 }
 
 void execute_fg(int job_id) {
@@ -281,43 +259,40 @@ void execute_bg(int job_id) {
 }
 
 int main(int argc, char **argv) {
+  yydebug = 1;
   handle_terminal_signals();
   enable_raw_mode();
 
   for (;;) {
-    printf("squash>");
+    printf("squash> ");
+    fflush(stdin);
 
-    char inchr = 0, *prompt = calloc(1, BUFSIZE);
-    size_t cursor = 0, total = BUFSIZE;
+    int inchr = 0;
+    char *prompt = allocate_space(LINE_SIZE);
+    size_t cursor = 0;
 
-    while (read(STDIN_FILENO, &inchr, 1) == 1 && inchr != '\x04') {
-      if (inchr == '\r' || inchr == '\n')
-	break;
-
+    while (read(STDIN_FILENO, &inchr, 1) 
+		&& inchr != '\r' 
+		&& inchr != '\n') {
       prompt[cursor++] = inchr;
-      if (((cursor + 1) % BUFSIZE) == 0) {
-        total += BUFSIZE;
-        void *maybe_null = realloc(prompt, total);
-        if (maybe_null == NULL) {
-          perror("realloc");
-          break;
-        } else {
-          prompt = maybe_null;
-        }
-      }
+      if (cursor >= LINE_SIZE)
+	break;
     }
 
-    prompt[cursor] = '\n';
+    printf("\n");
+
+    prompt[cursor] = ';';
     YY_BUFFER_STATE buffer = yy_scan_string(prompt);
 
     while (yyparse())
       ;
 
     yy_delete_buffer(buffer);
-    free(prompt);
+
+    if (inchr == '\x04')
+	break;
   }
 
-  free_all_jobs();
   free_regions();
   disable_raw_mode();
 }
