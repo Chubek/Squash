@@ -48,6 +48,8 @@ void free_regions(void) {
     *current = to_free->next;
     free(to_free);
   }
+
+  fprintf(stderr, "The arena stack has been freed.\n");
 }
 
 char *gc_strndup(const char *str, size_t length) {
