@@ -1,7 +1,7 @@
 #ifndef TYPES_H
 #define TYPES_H
 
-#define BUFSIZE 1024
+#define LINE_SIZE 4096
 #define ARGV_MAX 256
 
 #define JSTAT_Running 1
