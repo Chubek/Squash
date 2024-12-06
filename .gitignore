@@ -58,3 +58,7 @@ parser.tab.h
 parser.c
 y.tab.c
 lexer.h
+
+# Zephyr ASDL
+absyn.h
+absyn.c
