@@ -1,6 +1,9 @@
 #ifndef MEMORY_H
 #define MEMORY_H
 
+typedef struct GCObject GCObject;
+typedef struct GCHeap GCHeap;
+
 void gc_shutdown(void);
 void gc_collect(void);
 void gc_sweep(void);
