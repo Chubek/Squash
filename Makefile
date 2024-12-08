@@ -7,9 +7,12 @@ YACC := bison
 all: squash
 
 squash: job.o
-	$(CC) -o squash job.o memory.o lexer.o parser.o
+	$(CC) -o squash job.o memory.o lexer.o parser.o absyn.o
 
-job.o: memory.o
+job.o: absyn.o
+	$(CC) -c -o $@ $*.c
+
+absyn.o: memory.o
 	$(CC) -c -o $@ $*.c
 
 memory.o: lexer.o
@@ -27,3 +30,6 @@ lex.yy.c: parser.tab.c
 parser.tab.c: $(YACC_SRC)
 	$(YACC) -d $^
 
+
+.PHONY clean:
+	rm -f lex.yy.c parser.tab.c parser.tab.h parser.o memory.o job.o lexer.o absyn.o squash
