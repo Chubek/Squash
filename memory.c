@@ -1,63 +1,149 @@
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "types.h"
+#include "common.h"
 #include "memory.h"
 
 #define ALIGNMENT 8
-#define DEFAULT_REGION_SIZE 8096
+#define DEFAULT_HEAP_SIZE 8096
 
-static struct Arena {
-  size_t total;
-  size_t used;
-  struct Arena *next;
-  char mem[];
-} *main_arena = NULL;
+typedef struct GCObject {
+  void *memory;
+  bool marked;
+  size_t size;
+  size_t refs;
+  struct GCObject *next;
+} GCObject;
 
-Arena *new_region(size_t size) {
-  Arena *arena = (Arena *)calloc(1, size);
-  arena->total = size - (sizeof(uintptr_t) * 3);
-  arena->used = 0;
-  arena->next = NULL;
-  return arena;
+static struct GCHeap {
+  GCObject *objects;
+  size_t num_objects;
+} *GCHeap = NULL;
+
+void gc_init(void) {
+  heap = malloc(sizeof(GCHeap));
+  &heap->objects = NULL;
+  heap->num_objects = 0;
 }
 
-Arena *push_region(size_t size) {
-  Arena *new_arena = new_region(size);
-  new_arena->next = main_arena;
-  main_arena = new_arena;
-  return new_arena;
+GCObject *new_gc_object(GCObject **objects) {
+  GCObject *obj = malloc(sizeof(GCObject));
+  obj->memory = NULL;
+  obj->marked = false;
+  obj->size = 0;
+  obj->refs = 0;
+  obj->next = objects;
+  *objects = obj;
+  return obj;
 }
 
-void *allocate_space(size_t size) {
-  if (main_arena == NULL || (main_arena->total - main_arena->used) < size)
-    push_region(DEFAULT_REGION_SIZE);
+void *gc_alloc(size_t size) {
+  GCObject *obj = new_gc_object(&heap->objects);
+  obj->memory = calloc(1, size);
 
-  void *mem_space = (void *)&main_arena->mem[main_arena->used];
-  main_arena->used += size + (ALIGNMENT % size);
-
-  return mem_space;
-}
-
-void free_regions(void) {
-  Arena **current = &main_arena;
-  while (*current) {
-    Arena *to_free = *current;
-    *current = to_free->next;
-    free(to_free);
+  if (obj->memory == NULL) {
+    fprintf(stderr, "Allocation error\n");
+    return NULL;
   }
 
-  fprintf(stderr, "The arena stack has been freed.\n");
+  obj->size = size;
+  obj->refs = 1;
+  heap->num_objects++;
+  return obj->memory;
 }
 
-char *gc_strndup(const char *str, size_t length) {
-  char *mem = (char *)allocate_space(length + 1);
-  return memmove(&mem[0], &str[0], length);
+void gc_realloc(void *memory, size_t new_size) {
+  GCObject **objects = &heap->objects;
+  while (*objects) {
+    if ((*objects)->memory == memory) {
+      if ((*objects)->size > new_size) {
+        fprintf(stderr, "Reallocation error: Wrong size\n");
+        return NULL;
+      }
+
+      void *nptr = realloc((*objects)->memory, new_size);
+      if (nptr == NULL) {
+        fprintf(stderr, "Reallocation error\n");
+        return NULL;
+      }
+
+      (*objects)->memory = nptr;
+      (*objects)->size = new_size;
+
+      return (*objects)->memory;
+    }
+    *objects = (*objects)->next;
+  }
+
+  return NULL;
 }
 
-void *gc_memdup(const void *mem, size_t size) {
-  void *memdup = allocate_space(size);
-  return memmove(memdup, mem, size);
+void *gc_incref(void *memory) {
+  GCOjbect **objects = &heap->objects;
+  while (*objects) {
+    if ((*objects)->memory == memory) {
+      (*objects)->refs++;
+      return (*objects)->memory;
+    }
+    *objects = (*objects)->next;
+  }
+}
+
+void *gc_decref(void *memory) {
+  GCObject **objects = &heap->objects;
+  while (*objects) {
+    if ((*objects)->memory == memory) {
+      (*objects)->refs--;
+      return (*objects)->memory;
+    }
+    *objects = (*objects)->next;
+  }
+}
+
+void gc_free(void *memory) {
+  GCObject **objects = &heap->objects;
+  while (*objects) {
+    if ((*objects)->memory == memory) {
+      (*objects)->marked = true;
+      free((*objects)->memory);
+      return;
+    }
+    *objects = (*objects)->next;
+  }
+}
+
+void gc_mark(void) {
+  GCObject **objects = &heap->objects;
+  while (*objects) {
+    if ((*objects)->refs == 0)
+      (*objects)->marked = true;
+    *objects = (*objects)->next;
+  }
+}
+
+void gc_sweep(void) {
+  GCObject **objects = &heap->objects;
+  while (*objects) {
+    if ((*objects)->marked) {
+      GCObject *to_free = *objects;
+      *objects = to_free->next;
+      free(to_free->memory);
+      free(to_free);
+    }
+
+    *objects = (*objects)->next;
+  }
+}
+
+void gc_collect(void) {
+  gc_mark();
+  gc_sweep();
+}
+
+void gc_shutdown(void) {
+  gc_collect();
+  free(heap);
 }
