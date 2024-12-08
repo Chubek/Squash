@@ -12,8 +12,11 @@ squash: job.o
 job.o: absyn.o
 	$(CC) -c -o $@ $*.c
 
-absyn.o: memory.o
-	$(CC) -c -o $@ $*.c
+absyn.o: absyn.c
+	$(CC) -c -o $@ $^
+
+absyn.c absyn.h:
+	asdl -d absyn.h -o absyn.c squash.asdl
 
 memory.o: lexer.o
 	$(CC) -c -o $@ $*.c
@@ -32,4 +35,4 @@ parser.tab.c: $(YACC_SRC)
 
 
 .PHONY clean:
-	rm -f lex.yy.c parser.tab.c parser.tab.h parser.o memory.o job.o lexer.o absyn.o squash
+	rm -f lex.yy.c parser.tab.c parser.tab.h parser.o memory.o job.o lexer.o absyn.o absyn.c absyn.h squash
