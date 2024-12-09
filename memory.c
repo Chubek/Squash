@@ -8,7 +8,7 @@
 #include "common.h"
 #include "memory.h"
 
-#define ALIGNMENT 8
+#define ALIGNMENT 256
 #define DEFAULT_HEAP_SIZE 8096
 
 struct GCObject {
@@ -30,24 +30,25 @@ void gc_init(void) {
   heap->num_objects = 0;
 }
 
-GCObject *new_gc_object(GCObject **objects) {
+GCObject *new_gc_object(void) {
   GCObject *obj = malloc(sizeof(GCObject));
   obj->memory = NULL;
   obj->marked = false;
   obj->size = 0;
   obj->refs = 0;
-  obj->next = *objects;
-  *objects = obj;
+  obj->next = heap->objects;
+  heap->objects = obj;
   return obj;
 }
 
 void *gc_alloc(size_t size) {
-  GCObject *obj = new_gc_object(&heap->objects);
-  obj->memory = calloc(1, size);
+  GCObject *obj = new_gc_object();
+  size_t aligned_size = (size + ALIGNMENT - 1) & ~(ALIGNMENT - 1);
+  obj->memory = calloc(1, aligned_size);
 
   if (obj->memory == NULL) {
     fprintf(stderr, "Allocation error\n");
-    return NULL;
+    exit(EXIT_FAILURE);
   }
 
   obj->size = size;
@@ -57,85 +58,86 @@ void *gc_alloc(size_t size) {
 }
 
 void *gc_realloc(void *memory, size_t new_size) {
-  GCObject **objects = &heap->objects;
-  while (*objects) {
-    if ((*objects)->memory == memory) {
-      if ((*objects)->size > new_size) {
+  GCObject *objects = heap->objects;
+  while (objects) {
+    if (objects->memory == memory) {
+      if (objects->size > new_size) {
         fprintf(stderr, "Reallocation error: Wrong size\n");
-        return NULL;
+        exit(EXIT_FAILURE);
       }
 
-      void *nptr = realloc((*objects)->memory, new_size);
+      void *nptr = realloc(objects->memory, new_size);
+
       if (nptr == NULL) {
         fprintf(stderr, "Reallocation error\n");
-        return NULL;
+        exit(EXIT_FAILURE);
       }
 
-      (*objects)->memory = nptr;
-      (*objects)->size = new_size;
+      objects->memory = nptr;
+      objects->size = new_size;
 
-      return (*objects)->memory;
+      return objects->memory;
     }
-    *objects = (*objects)->next;
+    objects = objects->next;
   }
 
   return NULL;
 }
 
 void *gc_incref(void *memory) {
-  GCObject **objects = &heap->objects;
-  while (*objects) {
-    if ((*objects)->memory == memory) {
-      (*objects)->refs++;
-      return (*objects)->memory;
+  GCObject *objects = heap->objects;
+  while (objects) {
+    if (objects->memory == memory) {
+      objects->refs++;
+      return objects->memory;
     }
-    *objects = (*objects)->next;
+    objects = objects->next;
   }
 }
 
 void *gc_decref(void *memory) {
-  GCObject **objects = &heap->objects;
-  while (*objects) {
-    if ((*objects)->memory == memory) {
-      (*objects)->refs--;
-      return (*objects)->memory;
+  GCObject *objects = heap->objects;
+  while (objects) {
+    if (objects->memory == memory) {
+      objects->refs--;
+      return objects->memory;
     }
-    *objects = (*objects)->next;
+    objects = objects->next;
   }
 }
 
 void gc_free(void *memory) {
-  GCObject **objects = &heap->objects;
-  while (*objects) {
-    if ((*objects)->memory == memory) {
-      (*objects)->marked = true;
-      free((*objects)->memory);
+  GCObject *objects = heap->objects;
+  while (objects) {
+    if (objects->memory == memory) {
+      objects->marked = true;
+      free(objects->memory);
       return;
     }
-    *objects = (*objects)->next;
+    objects = objects->next;
   }
 }
 
 void gc_mark(void) {
-  GCObject **objects = &heap->objects;
-  while (*objects) {
-    if ((*objects)->refs == 0)
-      (*objects)->marked = true;
-    *objects = (*objects)->next;
+  GCObject *objects = heap->objects;
+  while (objects) {
+    if (objects->refs == 0 && objects->memory != NULL)
+      objects->marked = true;
+    objects = objects->next;
   }
 }
 
 void gc_sweep(void) {
-  GCObject **objects = &heap->objects;
-  while (*objects) {
-    if ((*objects)->marked) {
-      GCObject *to_free = *objects;
-      *objects = to_free->next;
+  GCObject *objects = heap->objects;
+  while (objects) {
+    if (objects->marked && objects->memory != NULL) {
+      GCObject *to_free = objects;
+      objects = to_free->next;
       free(to_free->memory);
       free(to_free);
     }
 
-    *objects = (*objects)->next;
+    objects = objects->next;
   }
 }
 
@@ -150,7 +152,7 @@ void gc_shutdown(void) {
 }
 
 char *gc_strndup(const char *str, size_t length) {
-  char *mem = (char*)gc_alloc(length + 1);
-  mem[length] = '\0';
-  return memmove(mem, str, length);
+  char *mem = (char *)gc_alloc(length + 1);
+  char *dup = memmove(&mem[0], &str[0], length);
+  return dup;
 }

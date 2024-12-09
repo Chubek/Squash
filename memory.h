@@ -14,7 +14,7 @@ void *gc_decref(void *memory);
 void *gc_incref(void *memory);
 void *gc_realloc(void *memory,size_t new_size);
 void *gc_alloc(size_t size);
-GCObject *new_gc_object(GCObject **objects);
+GCObject *new_gc_object(void);
 void gc_init(void);
 
 #endif

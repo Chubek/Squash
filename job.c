@@ -262,6 +262,7 @@ void execute_bg(int job_id) {
 }
 
 int main(int argc, char **argv) {
+  gc_init();
   atexit(gc_shutdown);
   handle_terminal_signals();
   enable_raw_mode();
@@ -303,6 +304,8 @@ int main(int argc, char **argv) {
 	|| do_exit == true)
 	break;
   }
+
+  printf("baz1");
 
   disable_raw_mode();
 }

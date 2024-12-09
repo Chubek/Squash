@@ -18,6 +18,7 @@ void yyerror(const char *);
 void walk_tree(command_def);
 
 static Command *cmd_chain = NULL;
+static string_t *word_chain = NULL;
 
 %}
 
@@ -51,7 +52,8 @@ squash: %empty
 
 simple_command: simple_command redir    { GET_simplecmd_redir($1) = $2; }
 	      | simple_command WORD     { append_command_simplecmd_argv_field($1, (string_t)$2); }
-	      | WORD			{ $$ = create_simplecmd(NULL, (string_t*)&$1, 1); }
+	      | WORD			{ word_chain = gc_incref((void*)$1); 
+	      				  $$ = create_simplecmd(NULL, (string_t*)&word_chain, 1); }
 	      ;
 
 redir: '>' WORD 			{ $$ = create_intordr((string_t)$2); }

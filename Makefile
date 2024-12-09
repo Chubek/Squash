@@ -7,25 +7,25 @@ YACC := bison
 all: squash
 
 squash: job.o memory.o absyn.o
-	$(CC) -o $@ job.o memory.o parser.o lexer.o absyn.o
+	$(CC) $(DEBUG) -o $@ job.o memory.o parser.o lexer.o absyn.o
 
 job.o: job.c absyn.h lexer.o parser.o
-	$(CC) -c -o $@ $*.c
+	$(CC) $(DEBUG) -c -o $@ $*.c
 
 absyn.o: absyn.c
-	$(CC) -c -o $@ $^
+	$(CC) $(DEBUG) -c -o $@ $^
 
 absyn.c absyn.h:
 	asdl -d absyn.h -o absyn.c squash.asdl
 
 memory.o: memory.c lexer.h
-	$(CC) -c -o $@ memory.c
+	$(CC) $(DEBUG) -c -o $@ memory.c
 
 lexer.o: lex.yy.c lexer.h parser.o
-	$(CC) -c -o $@ lex.yy.c
+	$(CC) $(DEBUG) -c -o $@ lex.yy.c
 
 parser.o: parser.tab.c parser.tab.h
-	$(CC) -c -o $@ parser.tab.c
+	$(CC) $(DEBUG) -c -o $@ parser.tab.c
 
 lex.yy.c lexer.h: $(LEX_SRC)
 	$(LEX) --header-file=lexer.h $^
