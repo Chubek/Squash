@@ -9,7 +9,8 @@
 #include <unistd.h>
 #include <wait.h>
 
-#include "types.h"
+#include "absyn.h"
+#include "common.h"
 #include "job.h"
 #include "lexer.h"
 #include "memory.h"
@@ -38,7 +39,7 @@ void disable_raw_mode(void) {
 }
 
 Command *new_command(void) {
-  Command *cmd = allocate_space(sizeof(Command));
+  Command *cmd = gc_alloc(sizeof(Command));
   cmd->argc = 0;
   for (size_t i = 0; i < ARGV_MAX; i++)
     cmd->argv[i] = NULL;
@@ -79,7 +80,7 @@ int get_job_id(pid_t pgid) {
 }
 
 Job *add_job(pid_t pgid, const char *command, int status) {
-  Job *job = allocate_space(sizeof(Job));
+  Job *job = gc_alloc(sizeof(Job));
   job->job_id = rand();
   job->pgid = pgid;
   job->command = gc_strndup(command, strlen(command));
@@ -261,7 +262,7 @@ void execute_bg(int job_id) {
 }
 
 int main(int argc, char **argv) {
-  atexit(free_regions);
+  atexit(gc_shutdown);
   handle_terminal_signals();
   enable_raw_mode();
 
@@ -270,7 +271,7 @@ int main(int argc, char **argv) {
     fflush(stdout);
 
     int inchr = 0;
-    char *prompt = allocate_space(LINE_SIZE);
+    char *prompt = gc_alloc(LINE_SIZE);
     size_t cursor = 0;
 
     while (read(STDIN_FILENO, &inchr, 1)

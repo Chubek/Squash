@@ -4,15 +4,18 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-#include "types.h"
+#include "common.h"
 #include "memory.h"
 #include "job.h"
 #include "lexer.h"
+#include "absyn.h"
 
 extern bool do_exit;
 
 void run_command_chain(Command *);
 void yyerror(const char *);
+
+void walk_tree(command_def);
 
 static Command *cmd_chain = NULL;
 
@@ -24,24 +27,37 @@ static Command *cmd_chain = NULL;
   const char *wordval;
   const char *idval;
   long numval;
+  redirection_def redirval;
+  command_def cmdval;
+  term_def termval;
 }
 
-%token WORD ANCHORED_IDENTIFIER DOLLAR_IDENTIFIER INTEGER_NUMBER SEMI
+%token WORD ANCHORED_IDENTIFIER DOLLAR_IDENTIFIER INTEGER_NUMBER
+%token SEMI AMPR DISJ CONJ PIPE
 
-%token BUILTIN_EXIT
+%type <redirval> redir
+%type <cmdval> command simple_command pipeline
+%type <termval> term
 
-%start repl
+%type <wordval> WORD
+
+%start squash
 
 %%
 
-repl: %empty
-    | command SEMI	{ run_command_chain(cmd_chain); }
-    | BUILTIN_EXIT SEMI	{ do_exit = true; }
-    ;
+squash: %empty
+      | simple_command SEMI		{ walk_tree($1); }
+      ;
 
-command: command WORD   { add_argv(cmd_chain, yylval.wordval); }
-       | WORD		{ cmd_chain = new_command(); add_argv(cmd_chain, yylval.wordval); }
-       ;
+simple_command: simple_command redir    { GET_simplecmd_redir($1) = $2; }
+	      | simple_command WORD     { append_command_simplecmd_argv_field($1, (string_t)$2); }
+	      | WORD			{ $$ = create_simplecmd(NULL, (string_t*)&$1, 1); }
+	      ;
+
+redir: '>' WORD 			{ $$ = create_intordr((string_t)$2); }
+     | '<' WORD				{ $$ = create_outtordr((string_t)$2); }
+     | ">>" WORD			{ $$ = create_appendrdr((string_t)$2); }
+     ;
 
 %%
 
@@ -52,5 +68,10 @@ void yyerror(const char *msg) {
 
 void run_command_chain(Command *chain) {
   launch_job(chain, false);
+}
+
+void walk_tree(command_def tree) {
+  if (tree->kind == SIMPLECMD_kind)
+    printf("SimpleCMD\n");
 }
 

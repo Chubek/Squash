@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include "absyn.h"
 #include "parser.tab.h"
 #include "memory.h"
 %}
@@ -14,10 +15,12 @@ opt_ws [ \t\n\r]*
 
 %%
 
-"exit"		     { return BUILTIN_EXIT; }
-
 [ \t\r\n]+	     ;
+"&"		     { return AMPR; }
 ";"		     { return SEMI; }
+"|"		     { return PIPE; }
+"||"		     { return DISJ; }
+"&&" 		     { return CONJ; }
 {ident}/"="	     { yylval.idval = gc_strndup(yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
 "$"{ident}           { yylval.idval = gc_strndup(yytext, yyleng);

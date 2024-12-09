@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,22 +11,22 @@
 #define ALIGNMENT 8
 #define DEFAULT_HEAP_SIZE 8096
 
-typedef struct GCObject {
+struct GCObject {
   void *memory;
   bool marked;
   size_t size;
   size_t refs;
   struct GCObject *next;
-} GCObject;
+};
 
 static struct GCHeap {
   GCObject *objects;
   size_t num_objects;
-} *GCHeap = NULL;
+} *heap = NULL;
 
 void gc_init(void) {
   heap = malloc(sizeof(GCHeap));
-  &heap->objects = NULL;
+  heap->objects = NULL;
   heap->num_objects = 0;
 }
 
@@ -35,7 +36,7 @@ GCObject *new_gc_object(GCObject **objects) {
   obj->marked = false;
   obj->size = 0;
   obj->refs = 0;
-  obj->next = objects;
+  obj->next = *objects;
   *objects = obj;
   return obj;
 }
@@ -55,7 +56,7 @@ void *gc_alloc(size_t size) {
   return obj->memory;
 }
 
-void gc_realloc(void *memory, size_t new_size) {
+void *gc_realloc(void *memory, size_t new_size) {
   GCObject **objects = &heap->objects;
   while (*objects) {
     if ((*objects)->memory == memory) {
@@ -82,7 +83,7 @@ void gc_realloc(void *memory, size_t new_size) {
 }
 
 void *gc_incref(void *memory) {
-  GCOjbect **objects = &heap->objects;
+  GCObject **objects = &heap->objects;
   while (*objects) {
     if ((*objects)->memory == memory) {
       (*objects)->refs++;
@@ -146,4 +147,10 @@ void gc_collect(void) {
 void gc_shutdown(void) {
   gc_collect();
   free(heap);
+}
+
+char *gc_strndup(const char *str, size_t length) {
+  char *mem = (char*)gc_alloc(length + 1);
+  mem[length] = '\0';
+  return memmove(mem, str, length);
 }

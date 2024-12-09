@@ -7,7 +7,7 @@ YACC := bison
 all: squash
 
 squash: job.o memory.o absyn.o
-	$(CC) -o $@ $^
+	$(CC) -o $@ job.o memory.o parser.o lexer.o absyn.o
 
 job.o: job.c absyn.h lexer.o parser.o
 	$(CC) -c -o $@ $*.c
@@ -19,7 +19,7 @@ absyn.c absyn.h:
 	asdl -d absyn.h -o absyn.c squash.asdl
 
 memory.o: memory.c lexer.h
-	$(CC) -c -o $@ $
+	$(CC) -c -o $@ memory.c
 
 lexer.o: lex.yy.c lexer.h parser.o
 	$(CC) -c -o $@ lex.yy.c
