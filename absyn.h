@@ -8,6 +8,7 @@
 typedef struct ASTWord {
   const uint8_t *buffer;
   size_t length;
+  struct ASTWord *next;
 } ASTWord;
 
 typedef struct ASTRedir {
@@ -37,8 +38,8 @@ typedef struct ASTCommand {
 } ASTCommand;
 
 ASTWord *new_ast_word(const uint8_t *buffer, size_t length);
+void ast_word_append(ASTWord *word, ASTWord *new_word);
 ASTSimpleCommand *new_ast_simple_command(ASTRedir *redir);
-void ast_simple_command_add_argv(ASTSimpleCommand *cmd, ASTWord *argv);
-ASTCommand *new_ast_command(enum CommandKind kind, void *cmd);
+ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd);
 
 #endif
