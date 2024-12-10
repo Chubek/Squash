@@ -17,19 +17,19 @@ ASTWord *new_ast_word(const uint8_t *buffer, size_t length) {
   return word;
 }
 
-ASTSimpleCommand *new_ast_simple_command(ASTRedir *redir) {
+ASTSimpleCommand *new_ast_simple_command(const ASTWord *argv0) {
   ASTSimpleCommand *simplecmd = gc_alloc(sizeof(ASTSimpleCommand));
-  simplecmd->redir = gc_incref(redir);
-  simplecmd->argv = NULL;
-  simplecmd->nargs = 0;
+  simplecmd->redir = NULL;
+  simplecmd->argv = argv0;
+  simplecmd->nargs = 1;
   return simplecmd;
 }
 
-void ast_word_append(ASTWord *word, ASTWord *new_word) {
+void ast_word_append(ASTWord *word, const ASTWord *new_word) {
   ASTWord *tmp = word;
   while (tmp->next != NULL)
     tmp = tmp->next;
-  tmp->next = gc_incref(new_word);
+  tmp->next = gc_incref((void*)new_word);
 }
 
 ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd) {

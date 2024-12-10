@@ -21,15 +21,15 @@ typedef struct ASTRedir {
   ASTWord *subj;
 } ASTRedir;
 
-typedef struct ASTSimpleCommnad {
+typedef struct ASTSimpleCommand {
   const ASTWord *argv;
   size_t nargs;
   ASTRedir *redir;
-} ASTSimpleCommnad;
+} ASTSimpleCommand;
 
 typedef struct ASTCommand {
   enum CommandKind {
-    COMMNAD_Simple,
+    COMMAND_Simple,
   } kind;
 
   union {
@@ -38,8 +38,8 @@ typedef struct ASTCommand {
 } ASTCommand;
 
 ASTWord *new_ast_word(const uint8_t *buffer, size_t length);
-void ast_word_append(ASTWord *word, ASTWord *new_word);
-ASTSimpleCommand *new_ast_simple_command(ASTRedir *redir);
+void ast_word_append(ASTWord *word, const ASTWord *new_word);
+ASTSimpleCommand *new_ast_simple_command(const ASTWord *argv0);
 ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd);
 
 #endif
