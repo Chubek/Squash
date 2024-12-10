@@ -40,4 +40,9 @@ ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd) {
     cmd->v_simplecmd = new_cmd;
 }
 
-
+ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj) {
+   ASTRedir *redir = gc_alloc(sizeof(ASTRedir));
+   redir->kind = kind;
+   redir->subj = subj;
+   return redir;
+}

@@ -21,13 +21,14 @@ opt_ws [ \t\n\r]*
 "|"		     { return PIPE; }
 "||"		     { return DISJ; }
 "&&" 		     { return CONJ; }
+">"		     { return LANGLE; }
+"<"		     { return RANGLE; }
+">>" 		     { return APPEND; }
 {ident}/"="	     { yylval.idval = gc_strndup(yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
 "$"{ident}           { yylval.idval = gc_strndup(yytext, yyleng);
 			return DOLLAR_IDENTIFIER; 	}
-[0-9]+		     { yylval.numval = strtol(gc_strndup(yytext, yyleng), NULL, 10);
-			return INTEGER_NUMBER;     	}
-[^ \t;|&]+	     { yylval.wordval = gc_strndup(yytext, yyleng);
+[^ \t;|&<>]+	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
 			return WORD; 			}
 
 

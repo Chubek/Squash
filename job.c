@@ -282,6 +282,11 @@ int main(int argc, char **argv) {
 		&& inchr != '\x00'
 		&& inchr != '\r' 
 		&& inchr != '\n') {
+      if (inchr == '\x04'
+	  || inchr == '\x03'
+	  || inchr == '\x1a'
+	  || inchr == '\x00')
+	goto exit_check;
       prompt[cursor++] = inchr;
       if (cursor >= LINE_SIZE)
 	break;
@@ -297,6 +302,7 @@ int main(int argc, char **argv) {
 
     yy_delete_buffer(buffer);
 
+exit_check:
     if (inchr == '\x04' 
 	|| inchr == '\x03' 
 	|| inchr == '\x1a'
@@ -304,8 +310,6 @@ int main(int argc, char **argv) {
 	|| do_exit == true)
 	break;
   }
-
-  printf("baz1");
 
   disable_raw_mode();
 }

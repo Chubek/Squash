@@ -12,33 +12,31 @@
 
 extern bool do_exit;
 
-void run_command_chain(Command *);
 void yyerror(const char *);
 
-void walk_tree(command_def);
-
-static Command *cmd_chain = NULL;
-static string_t *word_chain = NULL;
+void walk_tree(ASTSimpleCommand*);
 
 %}
 
 %define parse.trace
 
 %union {
-  const char *wordval;
   const char *idval;
   long numval;
-  redirection_def redirval;
-  command_def cmdval;
-  term_def termval;
+  ASTWord *wordval;
+  ASTRedir *redirval;
+  ASTCommand *cmdval;
+  ASTSimpleCommand *simplecmdval;
 }
 
 %token WORD ANCHORED_IDENTIFIER DOLLAR_IDENTIFIER INTEGER_NUMBER
 %token SEMI AMPR DISJ CONJ PIPE
+%token LANGLE RANGLE APPEND
 
+%type <cmdval> command pipeline
+%type <simplecmdval> simple_command
 %type <redirval> redir
-%type <cmdval> command simple_command pipeline
-%type <termval> term
+%type <wordval> word_chain
 
 %type <wordval> WORD
 
@@ -47,19 +45,22 @@ static string_t *word_chain = NULL;
 %%
 
 squash: %empty
+      | SEMI				{ }
       | simple_command SEMI		{ walk_tree($1); }
       ;
 
-simple_command: simple_command redir    { GET_simplecmd_redir($1) = $2; }
-	      | simple_command WORD     { append_command_simplecmd_argv_field($1, (string_t)$2); }
-	      | WORD			{ word_chain = gc_incref((void*)$1); 
-	      				  $$ = create_simplecmd(NULL, (string_t*)&word_chain, 1); }
+simple_command: word_chain redir        { $$ = new_ast_simple_command($1); $$->redir = gc_incref($2); }
+	      | word_chain		{ $$ = new_ast_simple_command($1);  }
 	      ;
 
-redir: '>' WORD 			{ $$ = create_intordr((string_t)$2); }
-     | '<' WORD				{ $$ = create_outtordr((string_t)$2); }
-     | ">>" WORD			{ $$ = create_appendrdr((string_t)$2); }
+redir: APPEND WORD                      { $$ = new_ast_redir(REDIR_Append, $2); }
+     | LANGLE WORD			{ $$ = new_ast_redir(REDIR_Out, $2);    }
+     | RANGLE WORD                      { $$ = new_ast_redir(REDIR_In, $2);     }
      ;
+
+word_chain: word_chain WORD 		{ ast_word_append($1, $2); }
+	  | WORD			{ $$ = $1; }
+	  ;
 
 %%
 
@@ -68,12 +69,8 @@ void yyerror(const char *msg) {
   fprintf(stderr, "%s\n", msg);
 }
 
-void run_command_chain(Command *chain) {
-  launch_job(chain, false);
-}
-
-void walk_tree(command_def tree) {
-  if (tree->kind == SIMPLECMD_kind)
-    printf("SimpleCMD\n");
+void walk_tree(ASTSimpleCommand *cmd) {
+ printf("%s\n", cmd->argv->buffer);
+ printf("%s\n", cmd->redir->subj->buffer);
 }
 

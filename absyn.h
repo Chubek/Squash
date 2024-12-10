@@ -12,7 +12,7 @@ typedef struct ASTWord {
 } ASTWord;
 
 typedef struct ASTRedir {
-  enum {
+  enum RedirKind {
     REDIR_In,
     REDIR_Out,
     REDIR_Append,
@@ -41,5 +41,6 @@ ASTWord *new_ast_word(const uint8_t *buffer, size_t length);
 void ast_word_append(ASTWord *word, const ASTWord *new_word);
 ASTSimpleCommand *new_ast_simple_command(const ASTWord *argv0);
 ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd);
+ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj);
 
 #endif
