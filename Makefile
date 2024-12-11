@@ -25,10 +25,10 @@ parser.o: parser.tab.c parser.tab.h
 	$(CC) $(DEBUG) -c -o $@ parser.tab.c
 
 lex.yy.c lexer.h: $(LEX_SRC)
-	$(LEX) --header-file=lexer.h $^
+	$(LEX) $(LEX_DEBUG) --header-file=lexer.h $^
 
 parser.tab.c parser.tab.h: $(YACC_SRC)
-	$(YACC) -d $^
+	$(YACC) $(YACC_DEBUG) -d $^
 
 .PHONY: clean
 clean:
