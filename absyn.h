@@ -16,8 +16,15 @@ typedef struct ASTRedir {
     REDIR_In,
     REDIR_Out,
     REDIR_Append,
+    REDIR_DupIn,
+    REDIR_DupOut,
+    REDIR_HereStr,
+    REDIR_HereDoc,
+    REDIR_RW,
+    REDIR_NoClobber,
   } kind;
 
+  int fno;
   ASTWord *subj;
 } ASTRedir;
 
@@ -38,9 +45,11 @@ typedef struct ASTCommand {
 } ASTCommand;
 
 ASTWord *new_ast_word(const uint8_t *buffer, size_t length);
+ASTWord *ast_digit_to_word(long digit);
 void ast_word_append(ASTWord *word, const ASTWord *new_word);
 ASTSimpleCommand *new_ast_simple_command(const ASTWord *argv0);
 ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd);
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj);
+
 
 #endif

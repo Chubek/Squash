@@ -16,6 +16,7 @@ opt_ws [ \t\n\r]*
 %%
 
 [ \t\r\n]+	     ;
+[0-9]		     { yylval.numval = strtol(yytext, NULL, 10); return DIGIT; }
 "&"		     { return AMPR; }
 ";"		     { return SEMI; }
 "|"		     { return PIPE; }
@@ -24,6 +25,11 @@ opt_ws [ \t\n\r]*
 ">"		     { return LANGLE; }
 "<"		     { return RANGLE; }
 ">>" 		     { return APPEND; }
+">|"		     { return NCLBR;  }
+"<<"		     { return HEREDOC; }
+"<<<"		     { return HERESTR; }
+">&"		     { return DUPOUT;  }
+"&<"                 { return DUPIN;   }
 {ident}/"="	     { yylval.idval = gc_strndup(yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
 "$"{ident}           { yylval.idval = gc_strndup(yytext, yyleng);
