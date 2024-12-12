@@ -29,7 +29,7 @@ opt_ws [ \t\n\r]*
 "<<"		     { return HEREDOC; }
 "<<<"		     { return HERESTR; }
 ">&"		     { return DUPOUT;  }
-"&<"                 { return DUPIN;   }
+"<&"                 { return DUPIN;   }
 {ident}/"="	     { yylval.idval = gc_strndup(yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
 "$"{ident}           { yylval.idval = gc_strndup(yytext, yyleng);
