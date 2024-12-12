@@ -16,12 +16,22 @@ opt_ws [ \t\n\r]*
 %%
 
 [ \t\r\n]+	     ;
-[0-9]		     { yylval.numval = strtol(yytext, NULL, 10); return DIGIT; }
 "&"		     { return AMPR; }
 ";"		     { return SEMI; }
 "|"		     { return PIPE; }
 "||"		     { return DISJ; }
 "&&" 		     { return CONJ; }
+"="		     { return EQUAL; }
+
+[0-9]+/">"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+[0-9]+/"<"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+[0-9]+/">>"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+[0-9]+/">|"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+[0-9]+/"<<"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+[0-9]+/"<<<"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+[0-9]+/">&"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+[0-9]+/"<&"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
+
 ">"		     { return LANGLE; }
 "<"		     { return RANGLE; }
 ">>" 		     { return APPEND; }
@@ -30,6 +40,7 @@ opt_ws [ \t\n\r]*
 "<<<"		     { return HERESTR; }
 ">&"		     { return DUPOUT;  }
 "<&"                 { return DUPIN;   }
+
 {ident}/"="	     { yylval.idval = gc_strndup(yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
 "$"{ident}           { yylval.idval = gc_strndup(yytext, yyleng);
