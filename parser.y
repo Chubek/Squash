@@ -61,7 +61,14 @@ shtoken: WORD				{ $$ = new_ast_shtoken(SHTOKEN_Word, $1); }
        | redir				{ $$ = new_ast_shtoken(SHTOKEN_Redir, $1); }
        ;
 
-redir: DIGIT redir			{ $2->fno = yylval.numval;     }
+redir: DIGIT LANGLE redir_word		{ $$ = new_ast_redir(REDIR_Out, $3); $$->fno = yylval.numval; }
+     | DIGIT RANGLE redir_word		{ $$ = new_ast_redir(REDIR_In, $3); $$->fno = yylval.numval; }
+     | DIGIT DUPIN redir_word		{ $$ = new_ast_redir(REDIR_DupIn, $3); $$->fno = yylval.numval; }
+     | DIGIT DUPOUT redir_word		{ $$ = new_ast_redir(REDIR_DupOut, $3); $$->fno = yylval.numval; }
+     | DIGIT HEREDOC redir_word		{ $$ = new_ast_redir(REDIR_HereDoc, $3); $$->fno = yylval.numval; }
+     | DIGIT HERESTR redir_word		{ $$ = new_ast_redir(REDIR_HereStr, $3); $$->fno = yylval.numval; }
+     | DIGIT NCLBR redir_word		{ $$ = new_ast_redir(REDIR_NoClobber, $3); $$->fno = yylval.numval; }
+     | DIGIT APPEND redir_word		{ $$ = new_ast_redir(REDIR_Append, $3); $$->fno = yylval.numval; }
      | APPEND redir_word                { $$ = new_ast_redir(REDIR_Append, $2); }
      | LANGLE redir_word		{ $$ = new_ast_redir(REDIR_Out, $2);    }
      | RANGLE redir_word                { $$ = new_ast_redir(REDIR_In, $2);     }
