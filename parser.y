@@ -14,7 +14,7 @@ extern bool do_exit;
 
 void yyerror(const char *);
 
-void walk_tree(ASTSimpleCommand*);
+void walk_tree(ASTPipeline*);
 
 %}
 
@@ -27,6 +27,7 @@ void walk_tree(ASTSimpleCommand*);
   ASTRedir *redirval;
   ASTCommand *cmdval;
   ASTSimpleCommand *simplecmdval;
+  ASTPipeline *pipelineval;
   ASTShtoken *shtokenval;
 }
 
@@ -35,10 +36,11 @@ void walk_tree(ASTSimpleCommand*);
 %token LANGLE RANGLE APPEND DUPIN DUPOUT NCLBR HERESTR HEREDOC
 %token DIGIT_REDIR
 
-%type <cmdval> command pipeline
+%type <cmdval> command
 %type <simplecmdval> simple_command
 %type <redirval> redir
 %type <shtokenval> shtoken
+%type <pipelineval> pipeline
 
 %type <wordval> WORD
 %type <numval> DIGIT_REDIR
@@ -49,8 +51,12 @@ void walk_tree(ASTSimpleCommand*);
 
 squash: %empty
       | SEMI				{ }
-      | simple_command SEMI		{ walk_tree($1); }
+      | pipeline SEMI			{ walk_tree($1); }
       ;
+
+pipeline: pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
+	| simple_command		{ $$ = new_ast_pipeline($1); }
+	;
 
 simple_command: simple_command shtoken	{ ast_shtoken_append($1->argv, $2); $1->nargs++; }
      	      | shtoken			{ $$ = new_ast_simple_command($1); }
@@ -86,7 +92,7 @@ void yyerror(const char *msg) {
   fprintf(stderr, "%s\n", msg);
 }
 
-void walk_tree(ASTSimpleCommand *cmd) {
+void walk_simple_command(ASTSimpleCommand *cmd) {
   ASTShtoken *tmp = cmd->argv;
   while (tmp) {
     if (tmp->kind == SHTOKEN_Word)
@@ -99,3 +105,10 @@ void walk_tree(ASTSimpleCommand *cmd) {
   }
 }
 
+void walk_tree(ASTPipeline *pipeline) {
+  ASTSimpleCommand *simple_cmd = pipeline->commands;
+  while (simple_cmd) {
+     walk_simple_command(simple_cmd);
+     simple_cmd = simple_cmd->next;
+  }
+}
