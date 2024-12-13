@@ -59,7 +59,7 @@ ASTSimpleCommand *new_ast_simple_command(ASTShtoken *argv0) {
 }
 
 void ast_simple_command_append(ASTSimpleCommand *head,
-                                     ASTSimpleCommand *new_command) {
+                               ASTSimpleCommand *new_command) {
   ASTSimpleCommand *tmp = head;
   while (head->next != NULL)
     tmp = tmp->next;
@@ -106,10 +106,26 @@ ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd) {
     cmd->v_simplecmd = new_cmd;
 }
 
+void ast_command_append(ASTCommand *head, ASTCommand *new_command) {
+  ASTCommand *tmp = head;
+  while (tmp->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_command);
+}
+
 void delete_ast_command(ASTCommand *cmd) {
   if (cmd->kind == COMMAND_Simple)
     delete_ast_simple_command(cmd->v_simplecmd);
   gc_decref(cmd);
+}
+
+void delete_ast_command_chain(ASTCommand *head) {
+  ASTCommand *tmp = head;
+  while (tmp) {
+    ASTCommand *to_free = head;
+    tmp = tmp->next;
+    delete_ast_command(to_free);
+  }
 }
 
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj) {
@@ -161,10 +177,38 @@ ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head) {
   ASTPipeline *pipeline = gc_alloc(sizeof(ASTPipeline));
   pipeline->commands = gc_incref(head);
   pipeline->ncommands++;
+  pipeline->next = NULL;
   return pipeline;
+}
+
+void ast_pipeline_append(ASTPipeline *head, ASTPipeline *new_pipeline) {
+  ASTPipeline *tmp = head;
+  while (tmp->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_pipeline);
 }
 
 void delete_ast_pipeline(ASTPipeline *pipeline) {
   delete_ast_simple_command_chain(pipeline->commands);
   gc_decref(pipeline);
+}
+
+void delete_ast_pipeline_chain(ASTPipeline *head) {
+  ASTPipeline *tmp = head;
+  while (tmp) {
+    ASTPipeline *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_pipeline(to_free);
+  }
+}
+
+ASTList *new_ast_list(enum ListKind kind, ASTPipeline *head) {
+  ASTList *list = gc_alloc(sizeof(ASTList));
+  list->sep = kind;
+  list->commands = gc_incref(head);
+}
+
+void delete_ast_list(ASTList *list) {
+  delete_ast_pipeline_chain(list->commands);
+  gc_decref(list);
 }

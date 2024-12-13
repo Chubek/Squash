@@ -5,13 +5,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct ASTWord {
+typedef struct ASTWord ASTWord;
+typedef struct ASTRedir ASTRedir;
+typedef struct ASTShtoken ASTShtoken;
+typedef struct ASTSimpleCommand ASTSimpleCommand;
+typedef struct ASTPipeline ASTPipeline;
+typedef struct ASTList ASTList;
+typedef struct ASTCommand ASTCommand;
+
+struct ASTWord {
   uint8_t *buffer;
   size_t length;
-  struct ASTWord *next;
-} ASTWord;
+  ASTWord *next;
+};
 
-typedef struct ASTRedir {
+struct ASTRedir {
   enum RedirKind {
     REDIR_In,
     REDIR_Out,
@@ -26,9 +34,9 @@ typedef struct ASTRedir {
 
   int fno;
   ASTWord *subj;
-} ASTRedir;
+};
 
-typedef struct ASTShtoken {
+struct ASTShtoken {
   enum ShtokenKind {
     SHTOKEN_Word,
     SHTOKEN_Redir,
@@ -39,32 +47,52 @@ typedef struct ASTShtoken {
     ASTRedir *v_redir;
   };
 
-  struct ASTShtoken *next;
-} ASTShtoken;
+  ASTShtoken *next;
+};
 
-typedef struct ASTSimpleCommand {
+struct ASTSimpleCommand {
   ASTShtoken *argv;
   size_t nargs;
   ASTRedir *redir;
-  struct ASTSimpleCommand *next;
-} ASTSimpleCommand;
+  ASTSimpleCommand *next;
+};
 
-typedef struct ASTPipeline {
+struct ASTPipeline {
   ASTSimpleCommand *commands;
   size_t ncommands;
-} ASTPipeline;
+  ASTPipeline *next;
+};
 
-typedef struct ASTCommand {
+struct ASTList {
+  enum ListKind {
+    LIST_Head,
+    LIST_And,
+    LIST_Or,
+    LIST_Semi,
+    LIST_Amper,
+  } sep;
+  
+  enum ListKind term;
+
+  ASTPipeline *commands;
+  size_t ncommands;
+};
+
+struct ASTCommand {
   enum CommandKind {
     COMMAND_Simple,
     COMMAND_Pipeline,
+    COMMAND_List,
   } kind;
 
   union {
     ASTSimpleCommand *v_simplecmd;
     ASTPipeline *v_pipeline;
+    ASTList *v_list;
   };
-} ASTCommand;
+
+  ASTCommand *next;
+};
 
 ASTWord *new_ast_word(uint8_t *buffer, size_t length);
 void delete_ast_word(ASTWord *word);
@@ -72,10 +100,13 @@ ASTWord *ast_digit_to_word(long digit);
 void ast_word_append(ASTWord *word, ASTWord *new_word);
 void delete_ast_word_chain(ASTWord *head);
 ASTSimpleCommand *new_ast_simple_command(ASTShtoken *argv0);
-void ast_simple_command_append(ASTSimpleCommand *head, ASTSimpleCommand *new_command);
+void ast_simple_command_append(ASTSimpleCommand *head,
+                               ASTSimpleCommand *new_command);
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd);
 void delete_ast_simple_command_chain(ASTSimpleCommand *head);
 ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd);
+void ast_command_append(ASTCommand *head, ASTCommand *new_command);
+void delete_ast_command_chain(ASTCommand *head);
 void delete_ast_command(ASTCommand *cmd);
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj);
 void delete_ast_redir(ASTRedir *redir);
@@ -84,6 +115,10 @@ void ast_shtoken_append(ASTShtoken *shtoken, ASTShtoken *new_shtoken);
 void delete_ast_shtoken(ASTShtoken *shtoken);
 void delete_ast_shtoken_chain(ASTShtoken *head);
 ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head);
+void ast_pipeline_append(ASTPipeline *head, ASTPipeline *new_pipeline);
+void delete_ast_pipeline_chain(ASTPipeline *head);
 void delete_ast_pipeline(ASTPipeline *pipeline);
+ASTList *new_ast_list(enum ListKind kind, ASTPipeline *head);
+void delete_ast_list(ASTList *list);
 
 #endif
