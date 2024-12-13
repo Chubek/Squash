@@ -18,7 +18,7 @@ ASTWord *new_ast_word(uint8_t *buffer, size_t length) {
 }
 
 void delete_ast_word(ASTWord *word) {
-  gc_free((void*)word->buffer);
+  gc_free((void *)word->buffer);
   gc_decref(word);
 }
 
@@ -54,7 +54,16 @@ ASTSimpleCommand *new_ast_simple_command(ASTShtoken *argv0) {
   simplecmd->redir = NULL;
   simplecmd->argv = argv0;
   simplecmd->nargs = 1;
+  simplecmd->next = NULL;
   return simplecmd;
+}
+
+void ast_simple_command_chain_append(ASTSimpleCommand *head,
+                                     ASTSimpleCommand *new_command) {
+  ASTSimpleCommand *tmp = head;
+  while (head->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_command);
 }
 
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd) {
@@ -62,6 +71,15 @@ void delete_ast_simple_command(ASTSimpleCommand *simplecmd) {
     delete_ast_redir(simplecmd->redir);
   delete_ast_shtoken_chain(simplecmd->argv);
   gc_decref(simplecmd);
+}
+
+void delete_ast_simple_command_chain(ASTSimpleCommand *head) {
+  ASTSimpleCommand *tmp = head;
+  while (tmp) {
+    ASTSimpleCommand *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_simple_command(to_free);
+  }
 }
 
 void ast_word_append(ASTWord *word, ASTWord *new_word) {
@@ -137,4 +155,16 @@ void delete_ast_shtoken_chain(ASTShtoken *head) {
     tmp = tmp->next;
     delete_ast_shtoken(to_free);
   }
+}
+
+ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head) {
+  ASTPipeline *pipeline = gc_alloc(sizeof(ASTPipeline));
+  pipeline->commands = gc_incref(head);
+  pipeline->ncommands++;
+  return pipeline;
+}
+
+void delete_ast_pipeline(ASTPipeline *pipeline) {
+  delete_ast_simple_command_chain(pipeline->commands);
+  gc_decref(pipeline);
 }

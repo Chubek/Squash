@@ -1,9 +1,9 @@
 #ifndef ABSYN_H
 #define ABSYN_H
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 
 typedef struct ASTWord {
   uint8_t *buffer;
@@ -42,20 +42,27 @@ typedef struct ASTShtoken {
   struct ASTShtoken *next;
 } ASTShtoken;
 
-
 typedef struct ASTSimpleCommand {
   ASTShtoken *argv;
   size_t nargs;
   ASTRedir *redir;
+  struct ASTSimpleCommand *next;
 } ASTSimpleCommand;
+
+typedef struct ASTPipeline {
+  ASTSimpleCommand *commands;
+  size_t ncommands;
+} ASTPipeline;
 
 typedef struct ASTCommand {
   enum CommandKind {
     COMMAND_Simple,
+    COMMAND_Pipeline,
   } kind;
 
   union {
     ASTSimpleCommand *v_simplecmd;
+    ASTPipeline *v_pipeline;
   };
 } ASTCommand;
 
@@ -65,7 +72,9 @@ ASTWord *ast_digit_to_word(long digit);
 void ast_word_append(ASTWord *word, ASTWord *new_word);
 void delete_ast_word_chain(ASTWord *head);
 ASTSimpleCommand *new_ast_simple_command(ASTShtoken *argv0);
+void ast_simple_command_append(ASTSimpleCommand *head, ASTSimpleCommand *new_command);
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd);
+void delete_ast_simple_command_chain(ASTSimpleCommand *head);
 ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd);
 void delete_ast_command(ASTCommand *cmd);
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj);
@@ -74,5 +83,7 @@ ASTShtoken *new_ast_shtoken(enum ShtokenKind kind, void *new_shtoken);
 void ast_shtoken_append(ASTShtoken *shtoken, ASTShtoken *new_shtoken);
 void delete_ast_shtoken(ASTShtoken *shtoken);
 void delete_ast_shtoken_chain(ASTShtoken *head);
+ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head);
+void delete_ast_pipeline(ASTPipeline *pipeline);
 
 #endif
