@@ -58,7 +58,7 @@ ASTSimpleCommand *new_ast_simple_command(ASTShtoken *argv0) {
   return simplecmd;
 }
 
-void ast_simple_command_chain_append(ASTSimpleCommand *head,
+void ast_simple_command_append(ASTSimpleCommand *head,
                                      ASTSimpleCommand *new_command) {
   ASTSimpleCommand *tmp = head;
   while (head->next != NULL)
