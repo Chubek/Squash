@@ -49,7 +49,7 @@ ASTWord *ast_digit_to_word(long digit) {
   }
 }
 
-ASTSimpleCommand *new_ast_simple_command(ASTShtoken *argv0) {
+ASTSimpleCommand *new_ast_simple_command(ASTSequence *argv0) {
   ASTSimpleCommand *simplecmd = gc_alloc(sizeof(ASTSimpleCommand));
   simplecmd->redir = NULL;
   simplecmd->argv = argv0;
@@ -69,7 +69,7 @@ void ast_simple_command_append(ASTSimpleCommand *head,
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd) {
   if (simplecmd->redir != NULL)
     delete_ast_redir(simplecmd->redir);
-  delete_ast_shtoken_chain(simplecmd->argv);
+  delete_ast_sequence_chain(simplecmd->argv);
   gc_decref(simplecmd);
 }
 
@@ -108,38 +108,38 @@ ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj) {
 
 void delete_ast_redir(ASTRedir *redir) { delete_ast_word(redir->subj); }
 
-ASTShtoken *new_ast_shtoken(enum ShtokenKind kind, void *new_shtoken) {
-  ASTShtoken *shtoken = gc_alloc(sizeof(ASTShtoken));
-  shtoken->kind = kind;
-  shtoken->next = NULL;
+ASTSequence *new_ast_sequence(enum SequenceKind kind, void *new_sequence) {
+  ASTSequence *sequence = gc_alloc(sizeof(ASTSequence));
+  sequence->kind = kind;
+  sequence->next = NULL;
 
-  if (shtoken->kind == SHTOKEN_Word)
-    shtoken->v_word = new_shtoken;
-  else if (shtoken->kind == SHTOKEN_Redir)
-    shtoken->v_redir = new_shtoken;
+  if (sequence->kind == SEQ_Word)
+    sequence->v_word = new_sequence;
+  else if (sequence->kind == SEQ_Redir)
+    sequence->v_redir = new_sequence;
 }
 
-void ast_shtoken_append(ASTShtoken *head, ASTShtoken *new_shtoken) {
-  ASTShtoken *tmp = head;
+void ast_sequence_append(ASTSequence *head, ASTSequence *new_sequence) {
+  ASTSequence *tmp = head;
   while (tmp->next != NULL)
     tmp = tmp->next;
-  tmp->next = new_shtoken;
+  tmp->next = new_sequence;
 }
 
-void delete_ast_shtoken(ASTShtoken *shtoken) {
-  if (shtoken->kind == SHTOKEN_Word)
-    delete_ast_word(shtoken->v_word);
-  else if (shtoken->kind == SHTOKEN_Redir)
-    delete_ast_redir(shtoken->v_redir);
-  gc_decref(shtoken);
+void delete_ast_sequence(ASTSequence *sequence) {
+  if (sequence->kind == SEQ_Word)
+    delete_ast_word(sequence->v_word);
+  else if (sequence->kind == SEQ_Redir)
+    delete_ast_redir(sequence->v_redir);
+  gc_decref(sequence);
 }
 
-void delete_ast_shtoken_chain(ASTShtoken *head) {
-  ASTShtoken *tmp = head;
+void delete_ast_sequence_chain(ASTSequence *head) {
+  ASTSequence *tmp = head;
   while (tmp) {
-    ASTShtoken *to_free = tmp;
+    ASTSequence *to_free = tmp;
     tmp = tmp->next;
-    delete_ast_shtoken(to_free);
+    delete_ast_sequence(to_free);
   }
 }
 

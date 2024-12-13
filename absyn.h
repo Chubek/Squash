@@ -6,8 +6,11 @@
 #include <stdlib.h>
 
 typedef struct ASTWord ASTWord;
+typedef struct ASTParam ASTParam;
+typedef struct ASTAssign ASTAssign;
+typedef struct ASTWordExpn ASTWordExpn;
 typedef struct ASTRedir ASTRedir;
-typedef struct ASTShtoken ASTShtoken;
+typedef struct ASTSequence ASTSequence;
 typedef struct ASTSimpleCommand ASTSimpleCommand;
 typedef struct ASTPipeline ASTPipeline;
 typedef struct ASTCompound ASTCompound;
@@ -24,6 +27,49 @@ struct ASTWord {
   uint8_t *buffer;
   size_t length;
   ASTWord *next;
+};
+
+struct ASTParam {
+  enum ParamKind {
+    PARAM_Positional,
+    PARAM_Special,
+    PARAM_ShellVariable,
+  } kind;
+
+  union {
+    int v_positional;
+    char v_special;
+    ASTWord *v_variable;
+  };
+};
+
+struct ASTWordExpn {
+  enum WordExpnKind {
+    WEXPN_Tilde,
+    WEXPN_ParamExpn,
+    WEXPN_CommandSubst,
+    WEXPN_FieldSplit,
+    WEXPN_Pathname,
+    WEXPN_QuoteRemoval,
+  } kind;
+
+  union {
+    ASTWord *v_word;
+    ASTParamExpn *v_paramexpn;
+  };
+
+  ASTWordExpn *next;
+};
+
+struct ASTParamExpn {
+  ASTParam *param;
+  ASTWord *punct;
+  ASTSequence *seq;
+};
+
+struct ASTAssign {
+  ASTWord *lhs;
+  ASTSequence *rhs;
 };
 
 struct ASTRedir {
@@ -43,22 +89,27 @@ struct ASTRedir {
   ASTWord *subj;
 };
 
-struct ASTShtoken {
-  enum ShtokenKind {
-    SHTOKEN_Word,
-    SHTOKEN_Redir,
+struct ASTSequence {
+  enum SequenceKind {
+    SEQ_Word,
+    SEQ_Redir,
+    SEQ_WordExpn,
+    SEQ_Assign,
+    SEQ_String,
   } kind;
 
   union {
     ASTWord *v_word;
     ASTRedir *v_redir;
+    ASTWordExpn *v_wordexpn;
+    ASTAssign *v_assign;
   };
 
-  ASTShtoken *next;
+  ASTSequence *next;
 };
 
 struct ASTSimpleCommand {
-  ASTShtoken *argv;
+  ASTSequence *argv;
   size_t nargs;
   ASTRedir *redir;
   ASTSimpleCommand *next;
@@ -146,21 +197,31 @@ struct ASTCompound {
 };
 
 ASTWord *new_ast_word(uint8_t *buffer, size_t length);
+bool ast_word_compare(ASTWord *word, const uint8_t *discrim);
 void delete_ast_word(ASTWord *word);
+ASTParam *new_ast_param(enum ParamKind kind, void *hook);
+void ast_param_append(ASTParam *head, ASTParam *new_param);
+void delete_ast_param(ASTParam *param);
+ASTWordExpn *new_ast_wordexpn(enum WordExpnKind kind, void *hook);
+void ast_wordexpn_append(ASTWordExpn *head, ASTWordExpn *new_wordexpn);
+void delete_ast_wordexpn(ASTWordExpn *wordexpn);
+void delete_ast_wordexpn_chain(ASTWordExpn *head);
+ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTWord *punct, ASTSequence *seq);
+void delete_ast_paramexpn(ASTParamExpn *paramexpn);
 ASTWord *ast_digit_to_word(long digit);
 void ast_word_append(ASTWord *word, ASTWord *new_word);
 void delete_ast_word_chain(ASTWord *head);
-ASTSimpleCommand *new_ast_simple_command(ASTShtoken *argv0);
+ASTSimpleCommand *new_ast_simple_command(ASTSequence *argv0);
 void ast_simple_command_append(ASTSimpleCommand *head,
                                ASTSimpleCommand *new_command);
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd);
 void delete_ast_simple_command_chain(ASTSimpleCommand *head);
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj);
 void delete_ast_redir(ASTRedir *redir);
-ASTShtoken *new_ast_shtoken(enum ShtokenKind kind, void *new_shtoken);
-void ast_shtoken_append(ASTShtoken *shtoken, ASTShtoken *new_shtoken);
-void delete_ast_shtoken(ASTShtoken *shtoken);
-void delete_ast_shtoken_chain(ASTShtoken *head);
+ASTSequence *new_ast_sequence(enum SequenceKind kind, void *new_sequence);
+void ast_sequence_append(ASTSequence *sequence, ASTSequence *new_sequence);
+void delete_ast_sequence(ASTSequence *sequence);
+void delete_ast_sequence_chain(ASTSequence *head);
 ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head);
 void ast_pipeline_append(ASTPipeline *head, ASTPipeline *new_pipeline);
 void delete_ast_pipeline_chain(ASTPipeline *head);
@@ -181,7 +242,8 @@ void delete_ast_untilloop(ASTUntilLoop *untilloop);
 void delete_ast_forloop(ASTForLoop *forloop);
 void delete_ast_casecond(ASTCaseCond *casecond);
 void delete_ast_ifcond(ASTIfCond *ifcond);
-void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clause, ASTList *body);
+void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clause,
+                              ASTList *body);
 void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body);
 ASTPattern *new_ast_pattern(void);
 void ast_pattern_append(ASTPattern *head, ASTPattern *new_pattern);
