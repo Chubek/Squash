@@ -29,6 +29,7 @@ void walk_tree(ASTPipeline*);
   ASTSimpleCommand *simplecmdval;
   ASTPipeline *pipelineval;
   ASTShtoken *shtokenval;
+  enum CompoundKind listkindval;
 }
 
 %token WORD ANCHORED_IDENTIFIER DOLLAR_IDENTIFIER
@@ -41,9 +42,11 @@ void walk_tree(ASTPipeline*);
 %type <redirval> redir
 %type <shtokenval> shtoken
 %type <pipelineval> pipeline
+%type <listkindval> list_sep list_term
 
 %type <wordval> WORD
 %type <numval> DIGIT_REDIR
+%type <listkindval> SEMI AMPR DISJ CONJ
 
 %start squash
 
@@ -51,8 +54,22 @@ void walk_tree(ASTPipeline*);
 
 squash: %empty
       | SEMI				{ }
-      | pipeline SEMI			{ walk_tree($1); }
+      | list				{ walk_tree($1); }
       ;
+
+list: list list_term			{ $1->term = $2; }
+    | list list_sep pipeline		{ $1->sep = $2; ast_pipeline_apppend($1->commands, $3); $1->ncommands++; }
+    | pipeline				{ $$ = new_ast_list(LIST_Head, $1); }
+    ;
+
+list_term: %empty
+	 | AMPR				{ $$ = $1; }
+	 | SEMI				{ $$ = $1; }
+	 ;
+
+list_sep: DISJ				{ $$ = $1; }
+	| CONJ				{ $$ = $1; }
+	;
 
 pipeline: pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
 	| simple_command		{ $$ = new_ast_pipeline($1); }
