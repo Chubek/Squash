@@ -10,8 +10,15 @@ typedef struct ASTRedir ASTRedir;
 typedef struct ASTShtoken ASTShtoken;
 typedef struct ASTSimpleCommand ASTSimpleCommand;
 typedef struct ASTPipeline ASTPipeline;
+typedef struct ASTCompound ASTCompound;
 typedef struct ASTList ASTList;
 typedef struct ASTCommand ASTCommand;
+typedef struct ASTForLoop ASTForLoop;
+typedef struct ASTWhileLoop ASTWhileLoop;
+typedef struct ASTUntilLoop ASTUntilLoop;
+typedef struct ASTCaseCond ASTCaseCond;
+typedef struct ASTIfCond ASTIfCond;
+typedef struct ASTPattern ASTPattern;
 
 struct ASTWord {
   uint8_t *buffer;
@@ -65,34 +72,77 @@ struct ASTPipeline {
     LIST_Or,
     LIST_Semi,
     LIST_Amper,
+    LIST_Newline,
   } sep;
-  
+
   enum ListKind term;
 
-  ASTSimpleCommand *commands;
+  ASTCompound *commands;
   size_t ncommands;
   ASTPipeline *next;
 };
 
 struct ASTList {
-  ASTPipeline *commands;
+  ASTCompound *commands;
   size_t ncommands;
 };
 
-struct ASTCommand {
-  enum CommandKind {
-    COMMAND_Simple,
-    COMMAND_Pipeline,
-    COMMAND_List,
+struct ASTWhileLoop {
+  ASTList *cond;
+  ASTList *body;
+};
+
+struct ASTUntilLoop {
+  ASTList *cond;
+  ASTList *body;
+};
+
+struct ASTForLoop {
+  ASTWord *name;
+  ASTWord *iter;
+  ASTList *body;
+};
+
+struct ASTCaseCond {
+  ASTWord *discrim;
+  struct ASTCasePair {
+    ASTPattern *clauses;
+    ASTList *body;
+    struct ASTCasePair *next;
+  } *pairs;
+};
+
+struct ASTIfCond {
+  struct ASTIfPair {
+    ASTList *cond;
+    ASTList *body;
+    struct ASTIfPair *next;
+  } *pairs;
+  ASTList *else_body;
+};
+
+struct ASTCompound {
+  enum CompoundKind {
+    COMPOUND_List,
+    COMPOUND_Subshell,
+    COMPOUND_Group,
+    COMPOUND_ForLoop,
+    COMPOUND_CaseCond,
+    COMPOUND_IfCond,
+    COMPOUND_WhileLoop,
+    COMPOUND_UntilLoop,
   } kind;
 
   union {
-    ASTSimpleCommand *v_simplecmd;
-    ASTPipeline *v_pipeline;
     ASTList *v_list;
+    ASTForLoop *v_forloop;
+    ASTCaseCond *v_casecond;
+    ASTIfCond *v_ifcond;
+    ASTWhileLoop *v_whileloop;
+    ASTUntilLoop *v_untilloop;
   };
 
-  ASTCommand *next;
+  ASTCompound *next;
 };
 
 ASTWord *new_ast_word(uint8_t *buffer, size_t length);
@@ -105,10 +155,6 @@ void ast_simple_command_append(ASTSimpleCommand *head,
                                ASTSimpleCommand *new_command);
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd);
 void delete_ast_simple_command_chain(ASTSimpleCommand *head);
-ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd);
-void ast_command_append(ASTCommand *head, ASTCommand *new_command);
-void delete_ast_command_chain(ASTCommand *head);
-void delete_ast_command(ASTCommand *cmd);
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj);
 void delete_ast_redir(ASTRedir *redir);
 ASTShtoken *new_ast_shtoken(enum ShtokenKind kind, void *new_shtoken);
@@ -121,5 +167,20 @@ void delete_ast_pipeline_chain(ASTPipeline *head);
 void delete_ast_pipeline(ASTPipeline *pipeline);
 ASTList *new_ast_list(ASTPipeline *head);
 void delete_ast_list(ASTList *list);
-
+ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook);
+void ast_compound_append(ASTCompound *head, ASTCompound *new_compound);
+void delete_ast_compound(ASTCompound *compound);
+void delete_ast_compound_chain(ASTCompound *head);
+ASTWhileLoop *new_ast_whileloop(ASTList *cond, ASTList *body);
+ASTUntilLoop *new_ast_untilloop(ASTList *cond, ASTList *body);
+ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTList *body);
+ASTCaseCond *new_ast_casecond(ASTWord *discrim);
+ASTIfCond *new_ast_ifcond(void);
+void delete_ast_whileloop(ASTWhileLoop *whileloop);
+void delete_ast_untilloop(ASTUntilLoop *untilloop);
+void delete_ast_forloop(ASTForLoop *forloop);
+void delete_ast_casecond(ASTCaseCond *casecond);
+void delete_ast_ifcond(ASTIfCOnd *ifcond);
+void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clause, ASTList *body);
+void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body);
 #endif
