@@ -16,10 +16,10 @@ opt_ws [ \t\n\r]*
 %%
 
 [ \t\r\n]+	     ;
-"&"		     { yylval.listkind = LIST_Amper; return AMPR; }
-";"		     { yylval.listkind = LIST_Semi; return SEMI; }
-"||"		     { yylval.listkind = LIST_Or; return DISJ; }
-"&&" 		     { yylval.listkind = LIST_And; return CONJ; }
+"&"		     { return AMPR; }
+";"		     { return SEMI; }
+"||"		     { return DISJ; }
+"&&" 		     { return CONJ; }
 
 "="		     { return EQUAL; }
 "|"		     { return PIPE; }

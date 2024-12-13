@@ -14,7 +14,7 @@ extern bool do_exit;
 
 void yyerror(const char *);
 
-void walk_tree(ASTPipeline*);
+void walk_tree(ASTList*);
 
 %}
 
@@ -29,7 +29,7 @@ void walk_tree(ASTPipeline*);
   ASTSimpleCommand *simplecmdval;
   ASTPipeline *pipelineval;
   ASTShtoken *shtokenval;
-  enum CompoundKind listkindval;
+  ASTList *listval;
 }
 
 %token WORD ANCHORED_IDENTIFIER DOLLAR_IDENTIFIER
@@ -42,11 +42,10 @@ void walk_tree(ASTPipeline*);
 %type <redirval> redir
 %type <shtokenval> shtoken
 %type <pipelineval> pipeline
-%type <listkindval> list_sep list_term
+%type <listval> list
 
 %type <wordval> WORD
 %type <numval> DIGIT_REDIR
-%type <listkindval> SEMI AMPR DISJ CONJ
 
 %start squash
 
@@ -57,21 +56,14 @@ squash: %empty
       | list				{ walk_tree($1); }
       ;
 
-list: list list_term			{ $1->term = $2; }
-    | list list_sep pipeline		{ $1->sep = $2; ast_pipeline_apppend($1->commands, $3); $1->ncommands++; }
-    | pipeline				{ $$ = new_ast_list(LIST_Head, $1); }
+list: list DISJ pipeline		{ $3->sep = LIST_Or; ast_pipeline_append($1->commands, $3); }
+    | list CONJ pipeline		{ $3->sep = LIST_And; ast_pipeline_append($1->commands, $3); }
+    | pipeline				{ $$ = new_ast_list($1); }
     ;
 
-list_term: %empty
-	 | AMPR				{ $$ = $1; }
-	 | SEMI				{ $$ = $1; }
-	 ;
-
-list_sep: DISJ				{ $$ = $1; }
-	| CONJ				{ $$ = $1; }
-	;
-
-pipeline: pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
+pipeline: pipeline SEMI			{ $1->term = LIST_Semi; }
+	| pipeline AMPR			{ $1->term = LIST_Amper; }
+	| pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
 	| simple_command		{ $$ = new_ast_pipeline($1); }
 	;
 
@@ -122,10 +114,26 @@ void walk_simple_command(ASTSimpleCommand *cmd) {
   }
 }
 
-void walk_tree(ASTPipeline *pipeline) {
+void walk_pipeline(ASTPipeline *pipeline) {
   ASTSimpleCommand *simple_cmd = pipeline->commands;
   while (simple_cmd) {
      walk_simple_command(simple_cmd);
      simple_cmd = simple_cmd->next;
+  }
+}
+
+void walk_tree(ASTList *list) {
+  ASTPipeline *pipeline = list->commands;
+  while (pipeline) {
+    if (pipeline->sep == LIST_And)
+      printf("-And-\n");
+    else if (pipeline->sep == LIST_Or)
+      printf("-Or-\n");
+    if (pipeline->term == LIST_Semi)
+      printf("-Semi-\n");
+    else if (pipeline->term == LIST_Amper)
+      printf("-Amper-\n");
+    walk_pipeline(pipeline);
+    pipeline = pipeline->next;
   }
 }
