@@ -77,7 +77,7 @@ struct ASTPipeline {
 
   enum ListKind term;
 
-  ASTCompound *commands;
+  ASTSimpleCommand *commands;
   size_t ncommands;
   ASTPipeline *next;
 };
@@ -180,7 +180,11 @@ void delete_ast_whileloop(ASTWhileLoop *whileloop);
 void delete_ast_untilloop(ASTUntilLoop *untilloop);
 void delete_ast_forloop(ASTForLoop *forloop);
 void delete_ast_casecond(ASTCaseCond *casecond);
-void delete_ast_ifcond(ASTIfCOnd *ifcond);
+void delete_ast_ifcond(ASTIfCond *ifcond);
 void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clause, ASTList *body);
 void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body);
+ASTPattern *new_ast_pattern(void);
+void ast_pattern_append(ASTPattern *head, ASTPattern *new_pattern);
+void delete_ast_pattern(ASTPattern *pattern);
+void delete_ast_pattern_chain(ASTPattern *head);
 #endif

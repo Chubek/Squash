@@ -98,20 +98,6 @@ void delete_ast_word_chain(ASTWord *head) {
   }
 }
 
-ASTCommand *new_ast_command(enum CommandKind kind, void *new_cmd) {
-  ASTCommand *cmd = gc_alloc(sizeof(ASTCommand));
-  cmd->kind = kind;
-
-  if (cmd->kind == COMMAND_Simple)
-    cmd->v_simplecmd = gc_incref(new_cmd);
-  else if (cmd->kind == COMMAND_Pipeline)
-    cmd->v_pipeline = gc_incref(new_cmd);
-  else if (cmd->kind == COMMAND_List)
-    cmd->v_list = gc_incref(new_cmd);
-  else if (cmd->kind == COMMAND_Compound)
-    cmd->v_compound = gc_incref(new_cmd);
-}
-
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj) {
   ASTRedir *redir = gc_alloc(sizeof(ASTRedir));
   redir->kind = kind;
@@ -195,14 +181,12 @@ ASTList *new_ast_list(ASTPipeline *head) {
 }
 
 void delete_ast_list(ASTList *list) {
-  delete_ast_pipeline_chain(list->commands);
+  delete_ast_compound_chain(list->commands);
   gc_decref(list);
 }
 
 ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook) {
   ASTCompound *compound = gc_alloc(sizeof(ASTCompound));
-  compound->commands = head;
-  compound->ncommands = 1;
   compound->next = NULL;
 
   if (kind == COMPOUND_List || kind == COMPOUND_Subshell ||
@@ -220,7 +204,7 @@ ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook) {
     compound->v_casecond = gc_incref(hook);
 }
 
-void ast_compound_append(ASTCompound *head, ASTCompound *next_compound) {
+void ast_compound_append(ASTCompound *head, ASTCompound *new_compound) {
   ASTCompound *tmp = head;
   while (tmp->next != NULL)
     tmp = tmp->next;
@@ -269,7 +253,7 @@ ASTUntilLoop *new_ast_untilloop(ASTList *cond, ASTList *body) {
 
 ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTList *body) {
   ASTForLoop *forloop = gc_alloc(sizeof(ASTForLoop));
-  forloop->word = gc_incref(word);
+  forloop->name = gc_incref(word);
   forloop->iter = gc_incref(iter);
   forloop->body = gc_incref(body);
   return forloop;
@@ -302,7 +286,7 @@ void delete_ast_untilloop(ASTUntilLoop *untilloop) {
 }
 
 void delete_ast_forloop(ASTForLoop *forloop) {
-  delete_ast_word(forloop->discrim);
+  delete_ast_word(forloop->name);
   delete_ast_word_chain(forloop->iter);
   delete_ast_list(forloop->body);
   gc_decref(forloop);
@@ -310,9 +294,9 @@ void delete_ast_forloop(ASTForLoop *forloop) {
 
 void delete_ast_casecond(ASTCaseCond *casecond) {
   delete_ast_word(casecond->discrim);
-  struct CaseCondPair *tmp = casecond->pairs;
+  struct ASTCasePair *tmp = casecond->pairs;
   while (tmp) {
-    struct CaseCondPair *to_free = tmp;
+    struct ASTCasePair *to_free = tmp;
     tmp = tmp->next;
     delete_ast_pattern_chain(to_free->clauses);
     delete_ast_list(to_free->body);
@@ -322,9 +306,9 @@ void delete_ast_casecond(ASTCaseCond *casecond) {
 }
 
 void delete_ast_ifcond(ASTIfCond *ifcond) {
-  struct IfCondPair *tmp = ifcond->pairs;
+  struct ASTIfPair *tmp = ifcond->pairs;
   while (tmp) {
-    struct IfCondPair *to_free = tmp;
+    struct ASTIfPair *to_free = tmp;
     tmp = tmp->next;
     delete_ast_list(to_free->cond);
     delete_ast_list(to_free->body);
@@ -336,20 +320,20 @@ void delete_ast_ifcond(ASTIfCond *ifcond) {
 }
 void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clauses,
                               ASTList *body) {
-  struct CaseCondPair *tmp = casecond->pairs;
+  struct ASTCasePair *tmp = casecond->pairs;
   while (tmp->next != NULL)
     tmp = tmp->next;
-  tmp->next = gc_alloc(sizeof(struct CaseCondPair));
+  tmp->next = gc_alloc(sizeof(struct ASTCasePair));
   tmp->next->clauses = gc_incref(clauses);
   tmp->next->body = gc_incref(body);
   tmp->next->next = NULL;
 }
 
 void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body) {
-  struct IfCondPair *tmp = ifcond->pairs;
+  struct ASTIfPair *tmp = ifcond->pairs;
   while (tmp->next != NULL)
     tmp = tmp->next;
-  tmp->next = gc_alloc(sizeof(struct IfCondPair));
+  tmp->next = gc_alloc(sizeof(struct ASTIfPair));
   tmp->next->cond = gc_incref(cond);
   tmp->next->body = gc_incref(body);
   tmp->next->next = NULL;
