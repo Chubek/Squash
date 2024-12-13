@@ -58,13 +58,8 @@ struct ASTSimpleCommand {
 };
 
 struct ASTPipeline {
-  ASTSimpleCommand *commands;
-  size_t ncommands;
-  ASTPipeline *next;
-};
-
-struct ASTList {
   enum ListKind {
+    LIST_None,
     LIST_Head,
     LIST_And,
     LIST_Or,
@@ -74,6 +69,12 @@ struct ASTList {
   
   enum ListKind term;
 
+  ASTSimpleCommand *commands;
+  size_t ncommands;
+  ASTPipeline *next;
+};
+
+struct ASTList {
   ASTPipeline *commands;
   size_t ncommands;
 };
@@ -118,7 +119,7 @@ ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head);
 void ast_pipeline_append(ASTPipeline *head, ASTPipeline *new_pipeline);
 void delete_ast_pipeline_chain(ASTPipeline *head);
 void delete_ast_pipeline(ASTPipeline *pipeline);
-ASTList *new_ast_list(enum ListKind kind, ASTPipeline *head);
+ASTList *new_ast_list(ASTPipeline *head);
 void delete_ast_list(ASTList *list);
 
 #endif

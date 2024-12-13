@@ -176,8 +176,10 @@ void delete_ast_shtoken_chain(ASTShtoken *head) {
 ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head) {
   ASTPipeline *pipeline = gc_alloc(sizeof(ASTPipeline));
   pipeline->commands = gc_incref(head);
-  pipeline->ncommands++;
+  pipeline->ncommands = 1;
   pipeline->next = NULL;
+  pipeline->sep = LIST_Head;
+  pipeline->term = LIST_None;
   return pipeline;
 }
 
@@ -202,10 +204,10 @@ void delete_ast_pipeline_chain(ASTPipeline *head) {
   }
 }
 
-ASTList *new_ast_list(enum ListKind kind, ASTPipeline *head) {
+ASTList *new_ast_list(ASTPipeline *head) {
   ASTList *list = gc_alloc(sizeof(ASTList));
-  list->sep = kind;
   list->commands = gc_incref(head);
+  list->ncommands = 1;
 }
 
 void delete_ast_list(ASTList *list) {
