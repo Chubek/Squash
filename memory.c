@@ -163,8 +163,9 @@ void gc_shutdown(void) {
   free(heap);
 }
 
-char *gc_strndup(const char *str, size_t length) {
-  char *mem = (char *)gc_alloc(length + 1);
-  char *dup = memmove(&mem[0], &str[0], length);
+uint8_t *gc_strndup(const uint8_t *str, size_t length) {
+  uint8_t *mem = (uint8_t *)gc_alloc(length + 1);
+  gc_incref(mem);
+  uint8_t *dup = memmove(&mem[0], &str[0], length);
   return dup;
 }
