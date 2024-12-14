@@ -24,6 +24,11 @@ bool ast_word_compare(ASTWord *word, const uint8_t *against) {
   return false;
 }
 
+void ast_word_append_char(ASTWord *word, uint8_t ch) {
+  word->buffer = gc_realloc(word->buffer, ++word->length);
+  word->buffer[word->length - 1] = ch;
+}
+
 void delete_ast_word(ASTWord *word) {
   gc_free((void *)word->buffer);
   gc_decref(word);
