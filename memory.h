@@ -4,7 +4,7 @@
 typedef struct GCObject GCObject;
 typedef struct GCHeap GCHeap;
 
-char *gc_strndup(const char *str, size_t length);
+uint8_t *gc_strndup(const uint8_t *str, size_t length);
 void gc_shutdown(void);
 void gc_collect(void);
 void gc_sweep(void);
