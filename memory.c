@@ -58,6 +58,9 @@ void *gc_alloc(size_t size) {
 }
 
 void *gc_realloc(void *memory, size_t new_size) {
+  if (memory == NULL)
+    return NULL;
+
   GCObject *objects = heap->objects;
   while (objects) {
     if (objects->memory == memory) {
@@ -85,6 +88,9 @@ void *gc_realloc(void *memory, size_t new_size) {
 }
 
 void *gc_incref(void *memory) {
+  if (memory == NULL)
+    return NULL;
+
   GCObject *objects = heap->objects;
   while (objects) {
     if (objects->memory == memory) {
@@ -96,6 +102,9 @@ void *gc_incref(void *memory) {
 }
 
 void *gc_decref(void *memory) {
+  if (memory == NULL)
+    return NULL;
+
   GCObject *objects = heap->objects;
   while (objects) {
     if (objects->memory == memory) {
@@ -107,6 +116,9 @@ void *gc_decref(void *memory) {
 }
 
 void gc_free(void *memory) {
+  if (memory == NULL)
+    return;
+
   GCObject *objects = heap->objects;
   while (objects) {
     if (objects->memory == memory) {
