@@ -18,10 +18,23 @@ ASTWord *new_ast_word(uint8_t *buffer, size_t length) {
   return word;
 }
 
-bool ast_word_compare(ASTWord *word, const uint8_t *against) {
+ASTWord *new_ast_word_blank(void) {
+  ASTWord *word = gc_alloc(sizeof(ASTWord));
+  gc_incref(word);
+  word->buffer = gc_alloc(1);
+  gc_incref(word->buffer);
+  word->length = 0;
+  return word;
+}
+
+bool ast_word_compare_string(ASTWord *word, const uint8_t *against) {
   if (!strncmp(word->buffer, against, word->length))
     return true;
   return false;
+}
+
+bool ast_word_compare_word(ASTWord *word, ASTWord *against) {
+  return ast_word_compare_string(word, against->buffer);
 }
 
 void ast_word_append_char(ASTWord *word, uint8_t ch) {
@@ -466,4 +479,34 @@ void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body) {
   tmp->next->body = gc_incref(body);
   tmp->next->next = NULL;
   gc_incref(tmp->next);
+}
+
+ASTPattern *new_ast_pattern(enum PatternKind kind, ASTWord *bracket) {
+  ASTPattern *pattern = gc_alloc(sizeof(ASTPattern));
+  gc_incref(pattern);
+  pattern->kind = kind;
+  pattern->bracket = bracket;
+  pattern->next = NULL;
+  return pattern;
+}
+
+void ast_pattern_append(ASTPattern *head, ASTPattern *new_pattern) {
+  ASTPattern *tmp = head;
+  while (tmp->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_pattern);
+}
+
+void delete_ast_pattern(ASTPattern *pattern) {
+  gc_decref(pattern->bracket);
+  gc_decref(pattern);
+}
+
+void delete_ast_pattern_chain(ASTPattern *head) {
+  ASTPattern *tmp = head;
+  while (tmp) {
+    ASTPattern *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_pattern(tmp);
+  }
 }
