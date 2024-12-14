@@ -6,28 +6,86 @@
 #include "absyn.h"
 #include "parser.tab.h"
 #include "memory.h"
+
+static ASTWord *current_string = NULL;
+void append_char_to_current_string(char ch);
+void blank_current_string(void);
+void init_current_string(void);
 %}
+
+%option stack noyywrap
 
 ident [a-zA-Z_][a-zA-Z0-9_]*
 ndigit [1-9]
 zdigit [0-9]
 opt_ws [ \t\n\r]*
 specparam [@$*#?!0-]
-word [^ \t;|&<>]+
+word [^ \t;|&<>(){}]+
+expnpunct [:=?+%#-]{1,2}
 
-%x DOLLAR EXPN
+%s DOLLAR EXPN SQOUTE DQOUTE TICK ARITH
 
 %%
 
-[ \t\r\n]+	     ;
+[ \t]+		     ;
+
+"("		     { return LPAREN; }
+")"		     { return RPAREN; }
+"{"		     { return LCURLY; }
+"}"		     { return RCURLY; }
+"["		     { return LBRACK; }
+"]"		     { return RBRACK; }
+
+"*"		     { return STAR; }
+"?"		     { return QMARK; }
+"!"		     { return BANG; }
+
 "&"		     { return AMPR; }
-";"		     { return SEMI; }
+";"|[\r\n]+	     { return SEMI; }
 ";;"		     { return DSEMI; }
 "||"		     { return DISJ; }
 "&&" 		     { return CONJ; }
 
 "="		     { return EQUAL; }
 "|"		     { return PIPE; }
+
+"'"		     { BEGIN SQUOTE; }
+"\""		     { BEGIN DQUOTE; return STRING_START; }
+
+"$(("		     { BEGIN ARITH; return ARITH_START; }
+
+<ARITH>"+"	     { return PLUS; }
+<ARITH>"-"	     { return MINUS; }
+<ARITH>"*"	     { return TIMES; }
+<ARITH>"/"	     { return DIV; }
+<ARITH>"%"	     { return MODULO; }
+<ARITH>">>"	     { return SHR; }
+<ARITH>"<<"	     { return SHL; }
+<ARITH>"))"	     { BEGIN INITIAL; return ARITH_END; }
+<ARITH>[1-9][0-9]*   { yylval.numval = atoi(yytext); return INTEGER; }
+
+
+<INITIAL,DQUOTE>"`"  { yy_push_state(YYSTATE); BEGIN TICK; return TICK_START; }
+
+<TICK,DQUOTE>"\$"	     { append_char_to_current_string('$'); }
+<TICK,DQUOTE>"\`"	     { append_char_to_current_string('`'); }
+<TICK,DQUOTE>"\\\""	     { append_char_to_current_string('"'); }
+<TICK,DQUOTE>"\\"	     { append_char_to_current_string('\\'); }
+<TICK,DQUOTE>"\\n"	     { append_char_to_current_string('\n'); }
+
+<SQOUTE>[^']		     { append_char_to_current_string(yytext[0]); }
+<DQUOTE>[^$`\\"]	     { append_char_to_current_string(yytext[0]); }
+
+<SQUOTE>"'"		     { yy_pop_state(); 
+			       yylval.wordval = gc_incref(current_string); 
+			       blank_current_string(); 
+			       return QSTRING; 
+			     }
+<DQUOTE>"\""		     { yy_pop_state(); 
+			       yylval.wordval = gc_incref(current_string);
+			       blank_current_string();
+			       return STRING_END; }
+<TICK>"`"		     { yy_pop_state(); return TICK_END; }
 
 [0-9]+/">"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
 [0-9]+/"<"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
@@ -61,39 +119,44 @@ word [^ \t;|&<>]+
 ">&"		     { return DUPOUT;  }
 "<&"                 { return DUPIN;   }
 
-"$"		     { BEGIN DOLLAR; }
+<INITIAL,DQUOTE,TICK>"$" { yy_push_state(YYSTATE); BEGIN DOLLAR; }
 
-<DOLLAR>[1-9]+	     { yylval.numval = atoi(yytext); BEGIN INITIAL; return ARGNUM; }
-<DOLLAR>{specparam}  { yylval.paramval = yytext[0]; BEGIN INITIAL; return SPECPARAM; }
-<DOLLAR>{identifier} { yylval.idval = gc_strndup(yytext, yyleng); BEGIN INITIAL; return PARAM_IDENTIFIER; }
-<DOLLAR>"{"	     { BEGIN EXPN; return EXPN_START; }
+<DOLLAR>[1-9]+	     { yylval.numval = atoi(yytext); yy_pop_state(); return ARGNUM; }
+<DOLLAR>{specparam}  { yylval.paramval = yytext[0]; yy_pop_state(); return SPECPARAM; }
+<DOLLAR>{ident}      { yylval.wordval = new_ast_word(yytext, yyleng); yy_pop_state(); return PARAM_IDENTIFIER; }
+<DOLLAR>"{"	     { yy_push_state(YYSTATE); BEGIN EXPN; return EXPN_START; }
 
-<EXPN>"}"	     { BEGIN INITIAL; return EXPN_END; }
-<EXPN>{identifier}   { return EXPN_IDENTIFIER; }
-<EXPN>{word}	     { return EXPN_WORD;  }
-<EXPN>":"	     { return EXPN_COLON; }
-<EXPN>"-"	     { return EXPN_DASH; }
-<EXPN>"="	     { return EXPN_EQUAL; }
-<EXPN>"?"	     { return EXPN_QMARK; }
-<EXPN>"+"	     { return EXPN_PLUS; }
-<EXPN>"%"	     { return EXPN_PERCENT; }
-<EXPN>"#"	     { return EXPN_POUND; }
-<EXPN>":-"	     { return EXPN_COLON_DASH; }
-<EXPN>":="	     { return EXPN_COLON_EQUAL; }
-<EXPN>":?"	     { return EXPN_COLON_QMARK; }
-<EXPN>":+"	     { return EXPN_COLON_PLUS; }
-<EXPN>"%%"	     { return EXPN_DPERCENT; }
-<EXPN>"##"	     { return EXPN_DPOUND; }
 
-{ident}/"="	     { yylval.idval = gc_strndup(yytext, yyleng);
+<EXPN>"}"	     { yy_pop_state(); return EXPN_END; }
+<EXPN>{ident} 	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng); 
+			return EXPN_IDENTIFIER; }
+<EXPN>{word}	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng); 
+			return EXPN_WORD;  }
+<EXPN>{expnpunct}    { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
+			return EXPN_PUNCT; }
+
+{ident}/"="	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
-{ident}/"()"	     { yylval.idval = gc_strndup(yytext, yyleng);
+{ident}/[ \t]*"()"   { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
                         return FNNAME_IDENTIFIER;       }
 {word} 		     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
 			return WORD; 			}
 
 
 %%
+
+void append_char_to_current_string(char ch) {
+  ast_word_append_char(current_string, ch);
+}
+
+void blank_current_string(void) {
+  delete_ast_word(current_string);
+  init_current_string();
+}
+
+void init_current_string(void) {
+  current_string = new_ast_word_blank();
+}
 
 int yywrap(void) { return 1; }
 
