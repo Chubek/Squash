@@ -12,7 +12,7 @@
 ASTWord *new_ast_word(uint8_t *buffer, size_t length) {
   ASTWord *word = gc_alloc(sizeof(ASTWord));
   gc_incref(word);
-  word->buffer = gc_strndup((char *)buffer, length);
+  word->buffer = gc_strndup(buffer, length);
   word->length = length;
   word->next = NULL;
   return word;
