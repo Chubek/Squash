@@ -52,7 +52,7 @@ void *gc_alloc(size_t size) {
   }
 
   obj->size = size;
-  obj->refs = 1;
+  obj->refs = 0;
   heap->num_objects++;
   return obj->memory;
 }
