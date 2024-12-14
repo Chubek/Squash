@@ -43,6 +43,17 @@ struct ASTParam {
   };
 };
 
+struct ASTPattern {
+  enum PatternKind {
+    PATT_AnyString,
+    PATT_AnyChar,
+    PATT_Bracket,
+  } kind;
+
+  ASTWord *bracket;
+  ASTPattern *next;
+};
+
 struct ASTWordExpn {
   enum WordExpnKind {
     WEXPN_Tilde,
@@ -56,6 +67,7 @@ struct ASTWordExpn {
   union {
     ASTWord *v_word;
     ASTParamExpn *v_paramexpn;
+    ASTSequence *v_sequence;
   };
 
   ASTWordExpn *next;
@@ -197,7 +209,11 @@ struct ASTCompound {
 };
 
 ASTWord *new_ast_word(uint8_t *buffer, size_t length);
-bool ast_word_compare(ASTWord *word, const uint8_t *discrim);
+ASTWord *new_ast_word_blank(void);
+bool ast_word_compare_string(ASTWord *word, const uint8_t *against);
+bool ast_word_compare_word(ASTWord *word, ASTWord *against);
+void ast_word_append_char(ASTWord *word, char ch);
+void ast_word_append_char(ASTWord *word, uint8_t ch);
 void delete_ast_word(ASTWord *word);
 ASTParam *new_ast_param(enum ParamKind kind, void *hook);
 void ast_param_append(ASTParam *head, ASTParam *new_param);
@@ -208,6 +224,8 @@ void delete_ast_wordexpn(ASTWordExpn *wordexpn);
 void delete_ast_wordexpn_chain(ASTWordExpn *head);
 ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTWord *punct, ASTSequence *seq);
 void delete_ast_paramexpn(ASTParamExpn *paramexpn);
+ASTAssign *new_ast_assign(ASTWord *lhs, ASTSequence *rhs);
+void delete_ast_assign(ASTAssign *assign);
 ASTWord *ast_digit_to_word(long digit);
 void ast_word_append(ASTWord *word, ASTWord *new_word);
 void delete_ast_word_chain(ASTWord *head);
@@ -245,7 +263,7 @@ void delete_ast_ifcond(ASTIfCond *ifcond);
 void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clause,
                               ASTList *body);
 void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body);
-ASTPattern *new_ast_pattern(void);
+ASTPattern *new_ast_pattern(enum PatternKind kind, ASTWord *bracket);
 void ast_pattern_append(ASTPattern *head, ASTPattern *new_pattern);
 void delete_ast_pattern(ASTPattern *pattern);
 void delete_ast_pattern_chain(ASTPattern *head);
