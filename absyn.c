@@ -18,6 +18,12 @@ ASTWord *new_ast_word(uint8_t *buffer, size_t length) {
   return word;
 }
 
+bool ast_word_compare(ASTWord *word, const uint8_t *against) {
+  if (!strncmp(word->buffer, against, word->length))
+    return true;
+  return false;
+}
+
 void delete_ast_word(ASTWord *word) {
   gc_free((void *)word->buffer);
   gc_decref(word);
@@ -138,6 +144,7 @@ void delete_ast_assign(ASTAssign *assign) {
   gc_decref(assign->rhs);
   gc_decref(assign);
 }
+
 void delete_ast_paramexpn(ASTParamExpn *paramexpn) {
   gc_decref(paramexpn->param);
   gc_decref(paramexpn->punct);
@@ -212,10 +219,14 @@ ASTSequence *new_ast_sequence(enum SequenceKind kind, void *new_sequence) {
   sequence->kind = kind;
   sequence->next = NULL;
 
-  if (sequence->kind == SEQ_Word)
+  if (kind == SEQ_Word)
     sequence->v_word = new_sequence;
-  else if (sequence->kind == SEQ_Redir)
+  else if (kind == SEQ_Redir)
     sequence->v_redir = new_sequence;
+  else if (kind == SEQ_WordExpn || kind == SEQ_String)
+    sequence->v_wordexpn = new_sequence;
+  else if (kind == SEQ_Assign)
+    sequence->v_assign = new_sequence;
 }
 
 void ast_sequence_append(ASTSequence *head, ASTSequence *new_sequence) {
@@ -230,6 +241,10 @@ void delete_ast_sequence(ASTSequence *sequence) {
     delete_ast_word(sequence->v_word);
   else if (sequence->kind == SEQ_Redir)
     delete_ast_redir(sequence->v_redir);
+  else if (sequence->kind == SEQ_String || sequence->kind == SEQ_WordExpn)
+    delete_ast_wordexpn(sequence->v_wordexpn);
+  else if (sequence->kind == SEQ_Assign)
+    delete_ast_assign(sequence->v_assign);
   gc_decref(sequence);
 }
 
