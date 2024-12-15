@@ -282,6 +282,8 @@ void delete_ast_sequence_chain(ASTSequence *head) {
 ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head) {
   ASTPipeline *pipeline = gc_alloc(sizeof(ASTPipeline));
   gc_incref(pipeline);
+  pipeline->sep = SEP_None;
+  pipeline->term = TERM_None;
   pipeline->commands = gc_incref(head);
   pipeline->ncommands = 1;
   pipeline->next = NULL;
@@ -316,9 +318,25 @@ ASTList *new_ast_list(ASTPipeline *head) {
   list->ncommands = 1;
 }
 
+void ast_list_append(ASTList *head, ASTList *new_list) {
+  ASTList *tmp = head;
+  while (tmp->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_list);
+}
+
 void delete_ast_list(ASTList *list) {
   delete_ast_compound_chain(list->commands);
   gc_decref(list);
+}
+
+void delete_ast_list_chain(ASTList *head) {
+  ASTList *tmp = head;
+  while (tmp) {
+    ASTList *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_list(to_free);
+  }
 }
 
 ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook) {
@@ -326,12 +344,11 @@ ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook) {
   gc_incref(compound);
   compound->next = NULL;
   compound->kind = kind;
-  compound->sep = LIST_Head;
-  compound->term = LIST_None;
 
-  if (kind == COMPOUND_List || kind == COMPOUND_Subshell ||
-      kind == COMPOUND_Group)
+  if (kind == COMPOUND_List)
     compound->v_list = gc_incref(hook);
+  else if (kind == COMPOUND_Subshell || kind == COMPOUND_Group)
+    compound->v_compoundlist = gc_incref(hook);
   else if (kind == COMPOUND_Pipeline)
     compound->v_pipeline = gc_incref(hook);
   else if (kind == COMPOUND_ForLoop)
@@ -379,7 +396,7 @@ void delete_ast_compound_chain(ASTCompound *head) {
   }
 }
 
-ASTWhileLoop *new_ast_whileloop(ASTList *cond, ASTList *body) {
+ASTWhileLoop *new_ast_whileloop(ASTCompoundList *cond, ASTCompoundList *body) {
   ASTWhileLoop *whileloop = gc_alloc(sizeof(ASTWhileLoop));
   gc_incref(whileloop);
   whileloop->cond = gc_incref(cond);
@@ -387,7 +404,7 @@ ASTWhileLoop *new_ast_whileloop(ASTList *cond, ASTList *body) {
   return whileloop;
 }
 
-ASTUntilLoop *new_ast_untilloop(ASTList *cond, ASTList *body) {
+ASTUntilLoop *new_ast_untilloop(ASTCompoundList *cond, ASTCompoundList *body) {
   ASTUntilLoop *untilloop = gc_alloc(sizeof(ASTUntilLoop));
   gc_incref(untilloop);
   untilloop->cond = gc_incref(cond);
@@ -395,7 +412,7 @@ ASTUntilLoop *new_ast_untilloop(ASTList *cond, ASTList *body) {
   return untilloop;
 }
 
-ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTList *body) {
+ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTCompoundList *body) {
   ASTForLoop *forloop = gc_alloc(sizeof(ASTForLoop));
   gc_incref(forloop);
   forloop->name = gc_incref(word);
@@ -421,21 +438,21 @@ ASTIfCond *new_ast_ifcond(void) {
 }
 
 void delete_ast_whileloop(ASTWhileLoop *whileloop) {
-  delete_ast_list(whileloop->cond);
-  delete_ast_list(whileloop->body);
+  delete_ast_compound_list(whileloop->cond);
+  delete_ast_compound_list(whileloop->body);
   gc_decref(whileloop);
 }
 
 void delete_ast_untilloop(ASTUntilLoop *untilloop) {
-  delete_ast_list(untilloop->cond);
-  delete_ast_list(untilloop->body);
+  delete_ast_compound_list(untilloop->cond);
+  delete_ast_compound_list(untilloop->body);
   gc_decref(untilloop);
 }
 
 void delete_ast_forloop(ASTForLoop *forloop) {
   delete_ast_word(forloop->name);
   delete_ast_word_chain(forloop->iter);
-  delete_ast_list(forloop->body);
+  delete_ast_compound_list(forloop->body);
   gc_decref(forloop);
 }
 
@@ -446,7 +463,7 @@ void delete_ast_casecond(ASTCaseCond *casecond) {
     struct ASTCasePair *to_free = tmp;
     tmp = tmp->next;
     delete_ast_pattern_chain(to_free->clauses);
-    delete_ast_list(to_free->body);
+    delete_ast_compound_list(to_free->body);
     gc_decref(to_free);
   }
   gc_decref(casecond);
@@ -457,16 +474,16 @@ void delete_ast_ifcond(ASTIfCond *ifcond) {
   while (tmp) {
     struct ASTIfPair *to_free = tmp;
     tmp = tmp->next;
-    delete_ast_list(to_free->cond);
-    delete_ast_list(to_free->body);
+    delete_ast_compound_list(to_free->cond);
+    delete_ast_compound_list(to_free->body);
     gc_decref(to_free);
   }
   if (ifcond->else_body != NULL)
-    delete_ast_list(ifcond->else_body);
+    delete_ast_compound_list(ifcond->else_body);
   gc_decref(ifcond);
 }
 void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clauses,
-                              ASTList *body) {
+                              ASTCompoundList *body) {
   struct ASTCasePair *tmp = casecond->pairs;
   while (tmp->next != NULL)
     tmp = tmp->next;
@@ -477,7 +494,7 @@ void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clauses,
   gc_incref(tmp->next);
 }
 
-void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body) {
+void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTCompoundList *cond, ASTCompoundList *body) {
   struct ASTIfPair *tmp = ifcond->pairs;
   while (tmp->next != NULL)
     tmp = tmp->next;
@@ -569,4 +586,16 @@ void delete_ast_funcdef(ASTFuncDef *funcdef) {
   gc_decref(funcdef->name);
   gc_decref(funcdef->body);
   gc_decref(funcdef->redir);
+}
+
+ASTCompoundList *new_ast_compound_list(ASTList *head) {
+  ASTCompoundList *compoundlist = gc_alloc(sizeof(ASTCompoundList));
+  compoundlist->lists = head;
+  compoundlist->nlists = 1;
+  return compoundlist;
+}
+
+void delete_ast_compound_list(ASTCompoundList *compoundlist) {
+  delete_ast_list_chain(compoundlist->lists);
+  gc_decref(compoundlist);
 }

@@ -15,6 +15,7 @@ typedef struct ASTSimpleCommand ASTSimpleCommand;
 typedef struct ASTPipeline ASTPipeline;
 typedef struct ASTCompound ASTCompound;
 typedef struct ASTList ASTList;
+typedef struct ASTCompoundList ASTCompoundList;
 typedef struct ASTCommand ASTCommand;
 typedef struct ASTForLoop ASTForLoop;
 typedef struct ASTWhileLoop ASTWhileLoop;
@@ -144,6 +145,19 @@ struct ASTSimpleCommand {
 };
 
 struct ASTPipeline {
+  enum ListKind {
+    SEP_Head,
+    SEP_And,
+    SEP_Or,
+    SEP_None,
+  } sep;
+
+  enum TermKind {
+    TERM_Semi,
+    TERM_Amper,
+    TERM_None,
+  } term;
+
   ASTSimpleCommand *commands;
   size_t ncommands;
   ASTPipeline *next;
@@ -152,40 +166,46 @@ struct ASTPipeline {
 struct ASTList {
   ASTCompound *commands;
   size_t ncommands;
+  ASTList *next;
+};
+
+struct ASTCompoundList {
+  ASTList *lists;
+  size_t nlists;
 };
 
 struct ASTWhileLoop {
-  ASTList *cond;
-  ASTList *body;
+  ASTCompoundList *cond;
+  ASTCompoundList *body;
 };
 
 struct ASTUntilLoop {
-  ASTList *cond;
-  ASTList *body;
+  ASTCompoundList *cond;
+  ASTCompoundList *body;
 };
 
 struct ASTForLoop {
   ASTWord *name;
   ASTWord *iter;
-  ASTList *body;
+  ASTCompoundList *body;
 };
 
 struct ASTCaseCond {
   ASTWord *discrim;
   struct ASTCasePair {
     ASTPattern *clauses;
-    ASTList *body;
+    ASTCompoundList *body;
     struct ASTCasePair *next;
   } *pairs;
 };
 
 struct ASTIfCond {
   struct ASTIfPair {
-    ASTList *cond;
-    ASTList *body;
+    ASTCompoundList *cond;
+    ASTCompoundList *body;
     struct ASTIfPair *next;
   } *pairs;
-  ASTList *else_body;
+  ASTCompoundList *else_body;
 };
 
 struct ASTCompound {
@@ -201,20 +221,9 @@ struct ASTCompound {
     COMPOUND_UntilLoop,
   } kind;
 
-  enum ListKind {
-    LIST_None,
-    LIST_Head,
-    LIST_And,
-    LIST_Or,
-    LIST_Semi,
-    LIST_Amper,
-  } sep;
-
-  enum ListKind term;
-
-
   union {
     ASTList *v_list;
+    ASTCompoundList *v_compoundlist;
     ASTPipeline *v_pipeline;
     ASTForLoop *v_forloop;
     ASTCaseCond *v_casecond;
@@ -270,14 +279,16 @@ void ast_pipeline_append(ASTPipeline *head, ASTPipeline *new_pipeline);
 void delete_ast_pipeline_chain(ASTPipeline *head);
 void delete_ast_pipeline(ASTPipeline *pipeline);
 ASTList *new_ast_list(ASTCompound *head);
+void ast_list_append(ASTList *head, ASTList *new_list);
 void delete_ast_list(ASTList *list);
+void delete_ast_list_chain(ASTList *head);
 ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook);
 void ast_compound_append(ASTCompound *head, ASTCompound *new_compound);
 void delete_ast_compound(ASTCompound *compound);
 void delete_ast_compound_chain(ASTCompound *head);
-ASTWhileLoop *new_ast_whileloop(ASTList *cond, ASTList *body);
-ASTUntilLoop *new_ast_untilloop(ASTList *cond, ASTList *body);
-ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTList *body);
+ASTWhileLoop *new_ast_whileloop(ASTCompoundList *cond, ASTCompoundList *body);
+ASTUntilLoop *new_ast_untilloop(ASTCompoundList *cond, ASTCompoundList *body);
+ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTCompoundList *body);
 ASTCaseCond *new_ast_casecond(ASTWord *discrim);
 ASTIfCond *new_ast_ifcond(void);
 void delete_ast_whileloop(ASTWhileLoop *whileloop);
@@ -286,8 +297,8 @@ void delete_ast_forloop(ASTForLoop *forloop);
 void delete_ast_casecond(ASTCaseCond *casecond);
 void delete_ast_ifcond(ASTIfCond *ifcond);
 void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clause,
-                              ASTList *body);
-void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body);
+                              ASTCompoundList *body);
+void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTCompoundList *cond, ASTCompoundList *body);
 ASTPattern *new_ast_pattern(enum PatternKind kind, ASTBracket *bracket);
 void ast_pattern_append(ASTPattern *head, ASTPattern *new_pattern);
 void delete_ast_pattern(ASTPattern *pattern);
@@ -300,4 +311,6 @@ ASTBracket *new_ast_bracket(ASTCharRange *ranges, bool negate);
 void delete_ast_bracket(ASTBracket *bracket);
 ASTFuncDef *new_ast_funcdef(ASTWord *name, ASTCompound *body, ASTRedir *redir);
 void delete_ast_funcdef(ASTFuncDef funcdef);
+ASTCompoundList *new_ast_compound_list(ASTList *head);
+void delete_ast_compound_list(ASTCompoundList *compoundlist);
 #endif
