@@ -47,6 +47,15 @@ void delete_ast_word(ASTWord *word) {
   gc_decref(word);
 }
 
+void delete_ast_word_chain(ASTWord *head) {
+  ASTWord *tmp = head;
+  while (tmp) {
+    ASTWord *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_word(to_free);
+  }
+}
+
 ASTWord *ast_digit_to_word(long digit) {
   switch (digit) {
   case 0:
@@ -209,15 +218,6 @@ void ast_word_append(ASTWord *word, ASTWord *new_word) {
   while (tmp->next != NULL)
     tmp = tmp->next;
   tmp->next = gc_incref((void *)new_word);
-}
-
-void delete_ast_word_chain(ASTWord *head) {
-  ASTWord *tmp = head;
-  while (tmp) {
-    ASTWord *to_free = tmp;
-    tmp = tmp->next;
-    delete_ast_word(to_free);
-  }
 }
 
 ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj) {
@@ -509,4 +509,42 @@ void delete_ast_pattern_chain(ASTPattern *head) {
     tmp = tmp->next;
     delete_ast_pattern(tmp);
   }
+}
+
+ASTCharRange *new_ast_charrange(char start, char end) {
+  ASTCharRange *charrange = gc_alloc(sizeof(ASTCharRange));
+  gc_incref(charrange);
+  charrange->start = start;
+  charrange->end = end;
+  charrange->next = NULL;
+  return charrange;
+}
+
+void ast_charrange_append(ASTCharRange *head, ASTCharRange *new_charrange) {
+  ASTCharRange *tmp = head;
+  while (tmp->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_charrange);
+}
+
+void delete_ast_charrange(ASTCharRange *charrange) { gc_decref(charrange); }
+void delete_ast_charrange_chain(ASTCharRange *head) {
+  ASTCharRange *tmp = head;
+  while (tmp) {
+    ASTCharRange *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_charrange(to_free);
+  }
+}
+ASTBracket *new_ast_bracket(ASTCharRange *ranges, bool negate) {
+  ASTBracket *bracket = gc_alloc(sizeof(ASTBracket));
+  gc_incref(bracket);
+  bracket->ranges = ranges;
+  bracket->negate = negate;
+  return bracket;
+}
+
+void delete_ast_bracket(ASTBracket *bracket) {
+  delete_ast_charrange_chain(bracket->ranges);
+  gc_decref(bracket);
 }
