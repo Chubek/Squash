@@ -23,9 +23,11 @@ specparam [@$*#?!0-]
 word [^ \t;|&<>(){}]+
 expnpunct [:=?+%#-]{1,2}
 
-%s DOLLAR EXPN SQOUTE DQOUTE TICK ARITH
+%s DOLLAR EXPN SQOUTE DQOUTE TICK ARITH BRACK
 
 %%
+
+^"#".+$		     ;
 
 [ \t]+		     ;
 
@@ -33,12 +35,27 @@ expnpunct [:=?+%#-]{1,2}
 ")"		     { return RPAREN; }
 "{"		     { return LCURLY; }
 "}"		     { return RCURLY; }
-"["		     { return LBRACK; }
-"]"		     { return RBRACK; }
 
+"()"		     { return FN_PARENS; }
+
+"~"		     { return TILDE; }
 "*"		     { return STAR; }
 "?"		     { return QMARK; }
 "!"		     { return BANG; }
+
+"["		     { BEGIN BRACK; return BRACK_START; }
+
+<BRACK>"-"	     { return BRACK_DASH; }
+<BRACK>"!"	     { return BRACK_BANG; }
+<BRACK>"\["	     { yylval.charval = '['; return BRACK_CHAR; }
+<BRACK>"\*"	     { yylval.charval = '*'; return BRACK_CHAR; }
+<BRACK>"\!"	     { yylval.charval = '!'; return BRACK_CHAR; }
+<BRACK>"\?"	     { yylval.charval = '?'; return BRACK_CHAR; }
+<BRACK>"\]"	     { yylval.charval = ']'; return BRACK_CHAR; }
+
+<BRACK>[^!\]\[\-\?*] { yylval.charval = yytext[0]; return BRACK_CHAR; }
+
+<BRACK>"]"	     { BEGIN INITIAL; return BRACK_END; }
 
 "&"		     { return AMPR; }
 ";"|[\r\n]+	     { return SEMI; }
@@ -52,7 +69,7 @@ expnpunct [:=?+%#-]{1,2}
 "'"		     { BEGIN SQUOTE; }
 "\""		     { BEGIN DQUOTE; return STRING_START; }
 
-"$(("		     { BEGIN ARITH; return ARITH_START; }
+"$(("		     { yy_push_state(YYSTATE); BEGIN ARITH; return ARITH_START; }
 
 <ARITH>"+"	     { return PLUS; }
 <ARITH>"-"	     { return MINUS; }
@@ -61,7 +78,7 @@ expnpunct [:=?+%#-]{1,2}
 <ARITH>"%"	     { return MODULO; }
 <ARITH>">>"	     { return SHR; }
 <ARITH>"<<"	     { return SHL; }
-<ARITH>"))"	     { BEGIN INITIAL; return ARITH_END; }
+<ARITH>"))"	     { yy_pop_state(); return ARITH_END; }
 <ARITH>[1-9][0-9]*   { yylval.numval = atoi(yytext); return INTEGER; }
 
 
@@ -137,7 +154,7 @@ expnpunct [:=?+%#-]{1,2}
 
 {ident}/"="	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
-{ident}/[ \t]*"()"   { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
+{ident}/"()"         { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
                         return FNNAME_IDENTIFIER;       }
 {word} 		     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
 			return WORD; 			}

@@ -12,6 +12,8 @@
 
 extern bool do_exit;
 
+static size_t current_range = 0;
+
 void yyerror(const char *);
 
 void walk_tree(ASTList*);
@@ -21,31 +23,64 @@ void walk_tree(ASTList*);
 %define parse.trace
 
 %union {
-  const char *idval;
   int numval;
+  char paramval;
+  char charval;
   ASTWord *wordval;
+  ASTParam *astparamval;
+  ASTWordExpn *wordexpnval;
+  ASTPattern *patternval;
   ASTRedir *redirval;
   ASTCommand *cmdval;
   ASTSimpleCommand *simplecmdval;
   ASTPipeline *pipelineval;
-  ASTShtoken *shtokenval;
+  ASTSequence *sequenceval;
   ASTList *listval;
+  ASTCompound *compoundval;
+  ASTCaseCond *casecondval;
+  ASTIfCond *ifcondval;
+  ASTUntilLoop *untilloopval;
+  ASTForLoop *forloopval;
+  ASTWhileLoop *whileloopval;
+  ASTCharRange *charrangeval;
+  ASTBracket *bracketval;
+  ASTFuncDef *funcdefval;
 }
 
-%token WORD ANCHORED_IDENTIFIER DOLLAR_IDENTIFIER
+%token WORD FNNAME_IDENTIFIER DOLLAR_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT
 %token SEMI AMPR DISJ CONJ PIPE EQUAL
 %token LANGLE RANGLE APPEND DUPIN DUPOUT NCLBR HERESTR HEREDOC
 %token DIGIT_REDIR
+%token SPECPARAM ARGNUM PARAM_IDENTIFIER
+%token EXPN_START EXPN_END
+%token KW_IF KW_ELSE KW_ELIF KW_THEN KW_FI
+%token KW_WHILE KW_FOR KW_UNTIL
+%token KW_CASE KW_ESAC
+%token KW_IN KW_DO KW_DONE
+%token FN_PARENS LPAREN RPAREN LCURLY RCURLY
+%token BRACK_START BRACK_END BRACK_CHAR BRACK_DASH BRACK_BANG
+%token TILDE BANG QMARK STAR 
 
 %type <cmdval> command
 %type <simplecmdval> simple_command
 %type <redirval> redir
-%type <shtokenval> shtoken
+%type <sequenceval> sequence
 %type <pipelineval> pipeline
+%type <compoundval> compound_command
 %type <listval> list
+%type <charrangeval> char_range char_ranges
+%type <bracketval> bracket
+%type <patternval> pattern patterns
+%type <funcdefval> func_def
+%type <casecondval> case_cond
+%type <ifcondval> if_cond
+%type <untilloopval> until_loop
+%type <forloopval> for_loop
+%type <whileloopval> while_loop
 
-%type <wordval> WORD
+%type <wordval> WORD ANCHORED_IDENTIFIER FNNAME_IDENTIFIER PARAM_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT
 %type <numval> DIGIT_REDIR
+%type <charval> BRACK_CHAR
 
 %start squash
 
@@ -56,24 +91,31 @@ squash: %empty
       | list				{ walk_tree($1); }
       ;
 
-list: list DISJ pipeline		{ $3->sep = LIST_Or; ast_pipeline_append($1->commands, $3); }
-    | list CONJ pipeline		{ $3->sep = LIST_And; ast_pipeline_append($1->commands, $3); }
-    | pipeline				{ $$ = new_ast_list($1); }
+compound_command: compound_command SEMI { $1->term = LIST_Semi; }
+		| compound_command AMPR { $1->term = LIST_Amper; }
+		| list			{ $$ = new_ast_compound(COMPOUND_List, $1); }
+		| pipeline		{ $$ = new_ast_compound(COMPOUND_Pipeline, $1); }
+		| LCURLY compound_command RCURLY { $$ = new_ast_compound(COMPOUND_Group, $2); }
+		| LPAREN compound_command SEMI RPAREN { $$ = new_ast_compound(COMPOUND_Subshell, $2); }
+		;
+
+list: list DISJ compound_command	{ $3->sep = LIST_Or; ast_compound_append($1->commands, $3); }
+    | list CONJ compound_command	{ $3->sep = LIST_And; ast_compound_append($1->commands, $3); }
+    | compound_command			{ $$ = new_ast_list($1); }
     ;
 
-pipeline: pipeline SEMI			{ $1->term = LIST_Semi; }
-	| pipeline AMPR			{ $1->term = LIST_Amper; }
-	| pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
+pipeline: pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
 	| simple_command		{ $$ = new_ast_pipeline($1); }
 	;
 
-simple_command: simple_command shtoken	{ ast_shtoken_append($1->argv, $2); $1->nargs++; }
-     	      | shtoken			{ $$ = new_ast_simple_command($1); }
+simple_command: simple_command sequence	{ ast_sequence_append($1->argv, $2); $1->nargs++; }
+     	      | sequence		{ $$ = new_ast_simple_command($1); }
 	      ;
 
-shtoken: WORD				{ $$ = new_ast_shtoken(SHTOKEN_Word, $1); }
-       | redir				{ $$ = new_ast_shtoken(SHTOKEN_Redir, $1); }
-       ;
+sequence: WORD				{ $$ = new_ast_sequence(SEQ_Word, $1); }
+        | redir				{ $$ = new_ast_sequence(SEQ_Redir, $1); }
+	| patterns			{ $$ = new_ast_sequence(SEQ_Pattern, $1; }
+        ;
 
 redir: DIGIT_REDIR LANGLE WORD		{ $$ = new_ast_redir(REDIR_Out, $3); $$->fno = $1; }
      | DIGIT_REDIR RANGLE WORD		{ $$ = new_ast_redir(REDIR_In, $3); $$->fno = $1; }
@@ -93,20 +135,38 @@ redir: DIGIT_REDIR LANGLE WORD		{ $$ = new_ast_redir(REDIR_Out, $3); $$->fno = $
      | DUPOUT WORD		{ $$ = new_ast_redir(REDIR_DupOut, $2);  }
      ;
 
+patterns: patterns pattern	{ ast_pattern_append($1, $2); $$ = $1; }
+	| pattern		{ $$ = $1; }
+	;
+
+pattern: STAR			{ $$ = new_ast_pattern(PATT_AnyString, NULL); }
+       | QMARK			{ $$ = new_ast_pattern(PATT_AnyChar, NULL); }
+       | bracket	        { $$ = new_ast_pattern(PATT_Bracket, $1); }
+       ;
+
+bracket: BRACK_START BRACK_BANG char_ranges BRACK_END { $$ = new_ast_bracket($3, true); }
+       | BRACK_START char_ranges BRACK_END 	      { $$ = new_ast_bracket($2, false); }
+       ;
+
+char_ranges: char_ranges char_range	{ ast_charrange_append($1, $2); $$ = $1; }
+	   | char_range			{ $$ = $1; }
+	   ;
+
+char_range: BRACK_CHAR BRACK_DASH BRACK_CHAR { $$ = new_ast_charrange($1, $3); }
 
 %%
 
 void yyerror(const char *msg) {
   fprintf(stderr, "Parsing error occurred:\n");
-  fprintf(stderr, "%s\n", msg);
+fprintf(stderr, "%s\n", msg);
 }
 
 void walk_simple_command(ASTSimpleCommand *cmd) {
-  ASTShtoken *tmp = cmd->argv;
+  ASTSequence *tmp = cmd->argv;
   while (tmp) {
-    if (tmp->kind == SHTOKEN_Word)
+    if (tmp->kind == SEQ_Word)
       printf("%s\n---=\n", tmp->v_word->buffer);
-    else if (tmp->kind == SHTOKEN_Redir) {
+    else if (tmp->kind == SEQ_Redir) {
       printf("%s\n", tmp->v_redir->subj->buffer);
       printf("%i\n---=\n", tmp->v_redir->fno);
     }
