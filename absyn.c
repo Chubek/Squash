@@ -285,8 +285,6 @@ ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head) {
   pipeline->commands = gc_incref(head);
   pipeline->ncommands = 1;
   pipeline->next = NULL;
-  pipeline->sep = LIST_Head;
-  pipeline->term = LIST_None;
   return pipeline;
 }
 
@@ -327,10 +325,15 @@ ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook) {
   ASTCompound *compound = gc_alloc(sizeof(ASTCompound));
   gc_incref(compound);
   compound->next = NULL;
+  compound->kind = kind;
+  compound->sep = LIST_Head;
+  compound->term = LIST_None;
 
   if (kind == COMPOUND_List || kind == COMPOUND_Subshell ||
       kind == COMPOUND_Group)
     compound->v_list = gc_incref(hook);
+  else if (kind == COMPOUND_Pipeline)
+    compound->v_pipeline = gc_incref(hook);
   else if (kind == COMPOUND_ForLoop)
     compound->v_forloop = gc_incref(hook);
   else if (kind == COMPOUND_WhileLoop)
