@@ -245,6 +245,8 @@ ASTSequence *new_ast_sequence(enum SequenceKind kind, void *new_sequence) {
     sequence->v_wordexpn = new_sequence;
   else if (kind == SEQ_Assign)
     sequence->v_assign = new_sequence;
+  else if (kind == SEQ_Pattern)
+    sequence->v_pattern = new_sequence;
 }
 
 void ast_sequence_append(ASTSequence *head, ASTSequence *new_sequence) {
@@ -263,6 +265,8 @@ void delete_ast_sequence(ASTSequence *sequence) {
     delete_ast_wordexpn(sequence->v_wordexpn);
   else if (sequence->kind == SEQ_Assign)
     delete_ast_assign(sequence->v_assign);
+  else if (sequence->kind == SEQ_Pattern)
+    delete_ast_pattern(sequence->v_pattern);
   gc_decref(sequence);
 }
 
