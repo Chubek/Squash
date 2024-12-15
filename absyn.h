@@ -69,7 +69,7 @@ struct ASTPattern {
 
 struct ASTWordExpn {
   enum WordExpnKind {
-    WEXPN_Tilde,
+    WEXPN_TildeExpn,
     WEXPN_ParamExpn,
     WEXPN_CommandSubst,
     WEXPN_FieldSplit,
@@ -121,6 +121,7 @@ struct ASTSequence {
     SEQ_WordExpn,
     SEQ_Assign,
     SEQ_String,
+    SEQ_Pattern,
   } kind;
 
   union {
@@ -128,6 +129,7 @@ struct ASTSequence {
     ASTRedir *v_redir;
     ASTWordExpn *v_wordexpn;
     ASTAssign *v_assign;
+    ASTPattern *v_pattern;
   };
 
   ASTSequence *next;
