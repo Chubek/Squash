@@ -489,7 +489,7 @@ ASTPattern *new_ast_pattern(enum PatternKind kind, ASTBracket *bracket) {
   ASTPattern *pattern = gc_alloc(sizeof(ASTPattern));
   gc_incref(pattern);
   pattern->kind = kind;
-  pattern->bracket = bracket;
+  pattern->bracket = gc_incref(bracket);
   pattern->next = NULL;
   return pattern;
 }
