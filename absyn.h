@@ -21,6 +21,8 @@ typedef struct ASTWhileLoop ASTWhileLoop;
 typedef struct ASTUntilLoop ASTUntilLoop;
 typedef struct ASTCaseCond ASTCaseCond;
 typedef struct ASTIfCond ASTIfCond;
+typedef struct ASTCharRange ASTCharRange;
+typedef struct ASTBracket ASTBracket;
 typedef struct ASTPattern ASTPattern;
 
 struct ASTWord {
@@ -43,6 +45,17 @@ struct ASTParam {
   };
 };
 
+struct ASTCharRange {
+  char start;
+  char end;
+  ASTCharRange *next;
+};
+
+struct ASTBracket {
+  ASTCharRange *ranges;
+  bool negage;
+};
+
 struct ASTPattern {
   enum PatternKind {
     PATT_AnyString,
@@ -50,7 +63,7 @@ struct ASTPattern {
     PATT_Bracket,
   } kind;
 
-  ASTWord *bracket;
+  ASTBracket *bracket;
   ASTPattern *next;
 };
 
@@ -222,7 +235,8 @@ ASTWordExpn *new_ast_wordexpn(enum WordExpnKind kind, void *hook);
 void ast_wordexpn_append(ASTWordExpn *head, ASTWordExpn *new_wordexpn);
 void delete_ast_wordexpn(ASTWordExpn *wordexpn);
 void delete_ast_wordexpn_chain(ASTWordExpn *head);
-ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTWord *punct, ASTSequence *seq);
+ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTWord *punct,
+                                ASTSequence *seq);
 void delete_ast_paramexpn(ASTParamExpn *paramexpn);
 ASTAssign *new_ast_assign(ASTWord *lhs, ASTSequence *rhs);
 void delete_ast_assign(ASTAssign *assign);
@@ -267,4 +281,10 @@ ASTPattern *new_ast_pattern(enum PatternKind kind, ASTWord *bracket);
 void ast_pattern_append(ASTPattern *head, ASTPattern *new_pattern);
 void delete_ast_pattern(ASTPattern *pattern);
 void delete_ast_pattern_chain(ASTPattern *head);
+ASTCharRange *new_ast_charrange(char start, char end);
+void ast_charrange_append(ASTCharRange *head, ASTCharRange *new_charrange);
+void delete_ast_charrange(ASTCharRange *charrange);
+void delete_ast_charrange_chain(ASTCharRange *head);
+ASTBracket *new_ast_bracket(ASTCharRange *ranges, bool negate);
+void delete_ast_bracket(ASTBracket *bracket);
 #endif
