@@ -144,18 +144,6 @@ struct ASTSimpleCommand {
 };
 
 struct ASTPipeline {
-  enum ListKind {
-    LIST_None,
-    LIST_Head,
-    LIST_And,
-    LIST_Or,
-    LIST_Semi,
-    LIST_Amper,
-    LIST_Newline,
-  } sep;
-
-  enum ListKind term;
-
   ASTSimpleCommand *commands;
   size_t ncommands;
   ASTPipeline *next;
@@ -203,6 +191,7 @@ struct ASTIfCond {
 struct ASTCompound {
   enum CompoundKind {
     COMPOUND_List,
+    COMPOUND_Pipeline,
     COMPOUND_Subshell,
     COMPOUND_Group,
     COMPOUND_ForLoop,
@@ -212,8 +201,21 @@ struct ASTCompound {
     COMPOUND_UntilLoop,
   } kind;
 
+  enum ListKind {
+    LIST_None,
+    LIST_Head,
+    LIST_And,
+    LIST_Or,
+    LIST_Semi,
+    LIST_Amper,
+  } sep;
+
+  enum ListKind term;
+
+
   union {
     ASTList *v_list;
+    ASTPipeline *v_pipeline;
     ASTForLoop *v_forloop;
     ASTCaseCond *v_casecond;
     ASTIfCond *v_ifcond;
@@ -267,7 +269,7 @@ ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head);
 void ast_pipeline_append(ASTPipeline *head, ASTPipeline *new_pipeline);
 void delete_ast_pipeline_chain(ASTPipeline *head);
 void delete_ast_pipeline(ASTPipeline *pipeline);
-ASTList *new_ast_list(ASTPipeline *head);
+ASTList *new_ast_list(ASTCompound *head);
 void delete_ast_list(ASTList *list);
 ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook);
 void ast_compound_append(ASTCompound *head, ASTCompound *new_compound);
