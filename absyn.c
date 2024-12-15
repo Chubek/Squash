@@ -481,7 +481,7 @@ void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTList *cond, ASTList *body) {
   gc_incref(tmp->next);
 }
 
-ASTPattern *new_ast_pattern(enum PatternKind kind, ASTWord *bracket) {
+ASTPattern *new_ast_pattern(enum PatternKind kind, ASTBracket *bracket) {
   ASTPattern *pattern = gc_alloc(sizeof(ASTPattern));
   gc_incref(pattern);
   pattern->kind = kind;
