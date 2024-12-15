@@ -24,6 +24,7 @@ typedef struct ASTIfCond ASTIfCond;
 typedef struct ASTCharRange ASTCharRange;
 typedef struct ASTBracket ASTBracket;
 typedef struct ASTPattern ASTPattern;
+typedef struct ASTFuncDef ASTFuncDef;
 
 struct ASTWord {
   uint8_t *buffer;
@@ -223,6 +224,12 @@ struct ASTCompound {
   ASTCompound *next;
 };
 
+struct ASTFuncDef {
+  ASTWord *name;
+  ASTCompound *body;
+  ASTRedir *redir;
+};
+
 ASTWord *new_ast_word(uint8_t *buffer, size_t length);
 ASTWord *new_ast_word_blank(void);
 bool ast_word_compare_string(ASTWord *word, const uint8_t *against);
@@ -289,4 +296,6 @@ void delete_ast_charrange(ASTCharRange *charrange);
 void delete_ast_charrange_chain(ASTCharRange *head);
 ASTBracket *new_ast_bracket(ASTCharRange *ranges, bool negate);
 void delete_ast_bracket(ASTBracket *bracket);
+ASTFuncDef *new_ast_funcdef(ASTWord *name, ASTCompound *body, ASTRedir *redir);
+void delete_ast_funcdef(ASTFuncDef funcdef);
 #endif
