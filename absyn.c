@@ -552,3 +552,18 @@ void delete_ast_bracket(ASTBracket *bracket) {
   delete_ast_charrange_chain(bracket->ranges);
   gc_decref(bracket);
 }
+
+ASTFuncDef *new_ast_funcdef(ASTWord *name, ASTCompound *body, ASTRedir *redir) {
+  ASTFuncDef *funcdef = gc_alloc(sizeof(ASTFuncDef));
+  gc_incref(funcdef);
+  funcdef->name = gc_incref(name);
+  funcdef->body = gc_incref(body);
+  funcdef->redir = gc_incref(redir);
+  return funcdef;
+}
+
+void delete_ast_funcdef(ASTFuncDef *funcdef) {
+  gc_decref(funcdef->name);
+  gc_decref(funcdef->body);
+  gc_decref(funcdef->redir);
+}
