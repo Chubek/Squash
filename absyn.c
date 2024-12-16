@@ -215,17 +215,58 @@ void ast_buffer_append(ASTBuffer *buffer, ASTBuffer *new_buffer) {
   tmp->next = gc_incref((void *)new_buffer);
 }
 
-ASTRedir *new_ast_redir(enum RedirKind kind, ASTBuffer *subj) {
+ASTRedir *new_ast_redir(enum RedirKind kind, void *hook) {
   ASTRedir *redir = gc_alloc(sizeof(ASTRedir));
   gc_incref(redir);
   redir->kind = kind;
-  redir->subj = subj;
   redir->fno = -1;
+
+  if (kind == REDIR_HereDoc)
+    redir->v_heredoc = gc_incref(hook);
+  else
+    redir->v_subj = gc_incref(hook);
+
   return redir;
 }
 
-void delete_ast_redir(ASTRedir *redir) { delete_ast_buffer(redir->subj); }
+void delete_ast_redir(ASTRedir *redir) {
+  if (redir->kind == REDIR_HereDoc)
+    delete_ast_heredoc_chain(redir->v_heredoc);
+  else
+    delete_ast_buffer(redir->subj);
+  gc_decref(redir);
+}
 
+ASTHereDoc *new_ast_heredoc(ASTBuffer *text, ASTBuffer *delim) {
+  ASTHereDoc *heredoc = gc_alloc(sizeof(ASTHereDoc));
+  gc_incref(heredoc);
+  heredoc->text = gc_incref(text);
+  heredoc->delim = gc_incref(delim);
+  heredoc->next = NULL;
+  return heredoc;
+}
+
+void ast_heredoc_append(ASTHereDoc *head, ASTHereDoc *new_heredoc) {
+  ASTHereDoc *tmp = head;
+  while (tmp->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_heredoc);
+}
+
+void delete_ast_heredoc(ASTHereDoc *heredoc) {
+  delete_ast_buffer(heredoc->text);
+  delete_ast_buffer(heredoc->delim);
+  gc_decref(heredoc);
+}
+
+void delete_ast_heredoc_chain(ASTHereDoc *head) {
+  ASTHereDoc *tmp = head;
+  while (tmp) {
+    ASTHereDoc *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_heredoc(to_free);
+  }
+}
 ASTWord *new_ast_word(enum WordKind kind, void *new_word) {
   ASTWord *word = gc_alloc(sizeof(ASTWord));
   gc_incref(word);

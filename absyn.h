@@ -8,6 +8,7 @@
 typedef struct ASTBuffer ASTBuffer;
 typedef struct ASTParam ASTParam;
 typedef struct ASTWordExpn ASTWordExpn;
+typedef struct ASTHereDoc ASTHereDoc;
 typedef struct ASTRedir ASTRedir;
 typedef struct ASTWord ASTWord;
 typedef struct ASTSimpleCommand ASTSimpleCommand;
@@ -97,6 +98,12 @@ struct ASTParamExpn {
   ASTWord *word;
 };
 
+struct ASTHereDoc {
+  ASTBuffer *text;
+  ASTBuffer *delim;
+  ASTHereDoc *next;
+};
+
 struct ASTRedir {
   enum RedirKind {
     REDIR_In,
@@ -110,8 +117,12 @@ struct ASTRedir {
     REDIR_NoClobber,
   } kind;
 
+  union {
+     ASTBuffer *v_subj;
+     ASTHereDoc *v_heredoc;
+  };
+
   int fno;
-  ASTBuffer *subj;
 };
 
 struct ASTWord {
@@ -348,4 +359,8 @@ void delete_ast_factor_chain(ASTFactor *head);
 ASTArithExpr *new_ast_arithexpr(enum OperatorKind op, ASTFactor *left,
                                 ASTFactor *right);
 void delete_ast_arithexpr(ASTArithExpr *arithexpr);
+ASTHereDoc *new_ast_heredoc(ASTBuffer *text, ASTBuffer *delim);
+void ast_heredoc_append(ASTHereDoc *head, ASTHereDoc *new_heredoc);
+void delete_ast_heredoc(ASTHereDoc *heredoc);
+void delete_ast_heredoc_chain(ASTHereDoc *head);
 #endif
