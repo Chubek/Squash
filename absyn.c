@@ -42,6 +42,12 @@ void ast_buffer_append_char(ASTBuffer *buffer, uint8_t ch) {
   buffer->buffer[buffer->length - 1] = ch;
 }
 
+void ast_buffer_append_string(ASTBuffer *buffer, uint8_t *string, size_t length) {
+  buffer->buffer = gc_realloc(buffer->buffer, buffer->length + length + 1);
+  memmove(&buffer->buffer[buffer->length - 1], &string[0], length);
+  buffer->length += length;
+}
+
 void delete_ast_buffer(ASTBuffer *buffer) {
   gc_free((void *)buffer->buffer);
   gc_decref(buffer);
@@ -267,6 +273,7 @@ void delete_ast_heredoc_chain(ASTHereDoc *head) {
     delete_ast_heredoc(to_free);
   }
 }
+
 ASTWord *new_ast_word(enum WordKind kind, void *new_word) {
   ASTWord *word = gc_alloc(sizeof(ASTWord));
   gc_incref(word);
