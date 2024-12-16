@@ -9,75 +9,75 @@
 #include "absyn.h"
 #include "memory.h"
 
-ASTWord *new_ast_word(uint8_t *buffer, size_t length) {
-  ASTWord *word = gc_alloc(sizeof(ASTWord));
-  gc_incref(word);
-  word->buffer = gc_strndup(buffer, length);
-  word->length = length;
-  word->next = NULL;
-  return word;
+ASTBuffer *new_ast_buffer(uint8_t *buffer, size_t length) {
+  ASTBuffer *buffer = gc_alloc(sizeof(ASTBuffer));
+  gc_incref(buffer);
+  buffer->buffer = gc_strndup(buffer, length);
+  buffer->length = length;
+  buffer->next = NULL;
+  return buffer;
 }
 
-ASTWord *new_ast_word_blank(void) {
-  ASTWord *word = gc_alloc(sizeof(ASTWord));
-  gc_incref(word);
-  word->buffer = gc_alloc(1);
-  gc_incref(word->buffer);
-  word->length = 0;
-  return word;
+ASTBuffer *new_ast_buffer_blank(void) {
+  ASTBuffer *buffer = gc_alloc(sizeof(ASTBuffer));
+  gc_incref(buffer);
+  buffer->buffer = gc_alloc(1);
+  gc_incref(buffer->buffer);
+  buffer->length = 0;
+  return buffer;
 }
 
-bool ast_word_compare_string(ASTWord *word, const uint8_t *against) {
-  if (!strncmp(word->buffer, against, word->length))
+bool ast_buffer_compare_string(ASTBuffer *buffer, const uint8_t *against) {
+  if (!strncmp(buffer->buffer, against, buffer->length))
     return true;
   return false;
 }
 
-bool ast_word_compare_word(ASTWord *word, ASTWord *against) {
-  return ast_word_compare_string(word, against->buffer);
+bool ast_buffer_compare_buffer(ASTBuffer *buffer, ASTBuffer *against) {
+  return ast_buffer_compare_string(buffer, against->buffer);
 }
 
-void ast_word_append_char(ASTWord *word, uint8_t ch) {
-  word->buffer = gc_realloc(word->buffer, ++word->length);
-  word->buffer[word->length - 1] = ch;
+void ast_buffer_append_char(ASTBuffer *buffer, uint8_t ch) {
+  buffer->buffer = gc_realloc(buffer->buffer, ++buffer->length);
+  buffer->buffer[buffer->length - 1] = ch;
 }
 
-void delete_ast_word(ASTWord *word) {
-  gc_free((void *)word->buffer);
-  gc_decref(word);
+void delete_ast_buffer(ASTBuffer *buffer) {
+  gc_free((void *)buffer->buffer);
+  gc_decref(buffer);
 }
 
-void delete_ast_word_chain(ASTWord *head) {
-  ASTWord *tmp = head;
+void delete_ast_buffer_chain(ASTBuffer *head) {
+  ASTBuffer *tmp = head;
   while (tmp) {
-    ASTWord *to_free = tmp;
+    ASTBuffer *to_free = tmp;
     tmp = tmp->next;
-    delete_ast_word(to_free);
+    delete_ast_buffer(to_free);
   }
 }
 
-ASTWord *ast_digit_to_word(long digit) {
+ASTBuffer *ast_digit_to_buffer(long digit) {
   switch (digit) {
   case 0:
-    return new_ast_word("0", 1);
+    return new_ast_buffer("0", 1);
   case 1:
-    return new_ast_word("1", 1);
+    return new_ast_buffer("1", 1);
   case 2:
-    return new_ast_word("2", 1);
+    return new_ast_buffer("2", 1);
   case 3:
-    return new_ast_word("3", 1);
+    return new_ast_buffer("3", 1);
   case 4:
-    return new_ast_word("4", 1);
+    return new_ast_buffer("4", 1);
   case 5:
-    return new_ast_word("5", 1);
+    return new_ast_buffer("5", 1);
   case 6:
-    return new_ast_word("6", 1);
+    return new_ast_buffer("6", 1);
   case 7:
-    return new_ast_word("7", 1);
+    return new_ast_buffer("7", 1);
   case 8:
-    return new_ast_word("8", 1);
+    return new_ast_buffer("8", 1);
   case 9:
-    return new_ast_word("9", 1);
+    return new_ast_buffer("9", 1);
   default:
     break;
   }
@@ -104,52 +104,52 @@ void delete_ast_param(ASTParam *param) {
   gc_decref(param);
 }
 
-ASTWordExpn *new_ast_wordexpn(enum WordExpnKind kind, void *hook) {
-  ASTWordExpn *wordexpn = gc_alloc(sizeof(ASTWordExpn));
-  gc_incref(wordexpn);
-  wordexpn->kind = kind;
-  wordexpn->next = NULL;
+ASTBufferExpn *new_ast_bufferexpn(enum BufferExpnKind kind, void *hook) {
+  ASTBufferExpn *bufferexpn = gc_alloc(sizeof(ASTBufferExpn));
+  gc_incref(bufferexpn);
+  bufferexpn->kind = kind;
+  bufferexpn->next = NULL;
 
   if (kind == WEXPN_ParamExpn)
-    wordexpn->v_paramexpn = hook;
+    bufferexpn->v_paramexpn = hook;
   else if (kind == WEXPN_FieldSplit || kind == WEXPN_Pathname)
-    wordexpn->v_word = hook;
+    bufferexpn->v_buffer = hook;
   else if (kind == WEXPN_CommandSubst || kind == WEXPN_QuoteRemoval)
-    wordexpn->v_sequence = hook;
+    bufferexpn->v_word = hook;
 
-  return wordexpn;
+  return bufferexpn;
 }
 
-void ast_wordexpn_append(ASTWordExpn *head, ASTWordExpn *new_wordexpn) {
-  ASTWordExpn *tmp = head;
+void ast_bufferexpn_append(ASTBufferExpn *head, ASTBufferExpn *new_bufferexpn) {
+  ASTBufferExpn *tmp = head;
   while (tmp->next != NULL)
     tmp = tmp->next;
-  tmp->next = gc_incref(new_wordexpn);
+  tmp->next = gc_incref(new_bufferexpn);
 }
 
-void delete_ast_wordexpn(ASTWordExpn *wordexpn) {
-  if (wordexpn->kind == WEXPN_ParamExpn)
-    delete_ast_paramexpn(wordexpn->v_paramexpn);
-  else if (wordexpn->kind == WEXPN_FieldSplit ||
-           wordexpn->kind == WEXPN_Pathname)
-    delete_ast_word(wordexpn->v_word);
-  else if (wordexpn->kind == WEXPN_CommandSubst ||
-           wordexpn->kind == WEXPN_QuoteRemoval)
-    delete_ast_sequence(wordexpn->v_sequence);
-  gc_decref(wordexpn);
+void delete_ast_bufferexpn(ASTBufferExpn *bufferexpn) {
+  if (bufferexpn->kind == WEXPN_ParamExpn)
+    delete_ast_paramexpn(bufferexpn->v_paramexpn);
+  else if (bufferexpn->kind == WEXPN_FieldSplit ||
+           bufferexpn->kind == WEXPN_Pathname)
+    delete_ast_buffer(bufferexpn->v_buffer);
+  else if (bufferexpn->kind == WEXPN_CommandSubst ||
+           bufferexpn->kind == WEXPN_QuoteRemoval)
+    delete_ast_word(bufferexpn->v_word);
+  gc_decref(bufferexpn);
 }
 
-void delete_ast_wordexpn_chain(ASTWordExpn *head) {
-  ASTWordExpn *tmp = head;
+void delete_ast_bufferexpn_chain(ASTBufferExpn *head) {
+  ASTBufferExpn *tmp = head;
   while (tmp) {
-    ASTWordExpn *to_free = tmp;
+    ASTBufferExpn *to_free = tmp;
     tmp = tmp->next;
-    delete_ast_wordexpn(to_free);
+    delete_ast_bufferexpn(to_free);
   }
 }
 
-ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTWord *punct,
-                                ASTSequence *seq) {
+ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTBuffer *punct,
+                                ASTWord *seq) {
   ASTParamExpn *paramexpn = gc_alloc(sizeof(ASTParamExpn));
   gc_incref(paramexpn);
   paramexpn->param = gc_incref(param);
@@ -158,7 +158,7 @@ ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTWord *punct,
   return paramexpn;
 }
 
-ASTAssign *new_ast_assign(ASTWord *lhs, ASTSequence *rhs) {
+ASTAssign *new_ast_assign(ASTBuffer *lhs, ASTWord *rhs) {
   ASTAssign *assign = gc_alloc(sizeof(ASTAssign));
   gc_incref(assign);
   assign->lhs = gc_incref(lhs);
@@ -179,7 +179,7 @@ void delete_ast_paramexpn(ASTParamExpn *paramexpn) {
   gc_decref(paramexpn);
 }
 
-ASTSimpleCommand *new_ast_simple_command(ASTSequence *argv0) {
+ASTSimpleCommand *new_ast_simple_command(ASTWord *argv0) {
   ASTSimpleCommand *simplecmd = gc_alloc(sizeof(ASTSimpleCommand));
   gc_incref(simplecmd);
   simplecmd->redir = NULL;
@@ -200,7 +200,7 @@ void ast_simple_command_append(ASTSimpleCommand *head,
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd) {
   if (simplecmd->redir != NULL)
     delete_ast_redir(simplecmd->redir);
-  delete_ast_sequence_chain(simplecmd->argv);
+  delete_ast_word_chain(simplecmd->argv);
   gc_decref(simplecmd);
 }
 
@@ -213,14 +213,14 @@ void delete_ast_simple_command_chain(ASTSimpleCommand *head) {
   }
 }
 
-void ast_word_append(ASTWord *word, ASTWord *new_word) {
-  ASTWord *tmp = word;
+void ast_buffer_append(ASTBuffer *buffer, ASTBuffer *new_buffer) {
+  ASTBuffer *tmp = buffer;
   while (tmp->next != NULL)
     tmp = tmp->next;
-  tmp->next = gc_incref((void *)new_word);
+  tmp->next = gc_incref((void *)new_buffer);
 }
 
-ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj) {
+ASTRedir *new_ast_redir(enum RedirKind kind, ASTBuffer *subj) {
   ASTRedir *redir = gc_alloc(sizeof(ASTRedir));
   gc_incref(redir);
   redir->kind = kind;
@@ -229,53 +229,53 @@ ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj) {
   return redir;
 }
 
-void delete_ast_redir(ASTRedir *redir) { delete_ast_word(redir->subj); }
+void delete_ast_redir(ASTRedir *redir) { delete_ast_buffer(redir->subj); }
 
-ASTSequence *new_ast_sequence(enum SequenceKind kind, void *new_sequence) {
-  ASTSequence *sequence = gc_alloc(sizeof(ASTSequence));
-  gc_incref(sequence);
-  sequence->kind = kind;
-  sequence->next = NULL;
+ASTWord *new_ast_word(enum WordKind kind, void *new_word) {
+  ASTWord *word = gc_alloc(sizeof(ASTWord));
+  gc_incref(word);
+  word->kind = kind;
+  word->next = NULL;
 
-  if (kind == SEQ_Word)
-    sequence->v_word = new_sequence;
-  else if (kind == SEQ_Redir)
-    sequence->v_redir = new_sequence;
-  else if (kind == SEQ_WordExpn || kind == SEQ_String)
-    sequence->v_wordexpn = new_sequence;
-  else if (kind == SEQ_Assign)
-    sequence->v_assign = new_sequence;
-  else if (kind == SEQ_Pattern)
-    sequence->v_pattern = new_sequence;
+  if (kind == WORD_Buffer)
+    word->v_buffer = new_word;
+  else if (kind == WORD_Redir)
+    word->v_redir = new_word;
+  else if (kind == WORD_BufferExpn || kind == WORD_String)
+    word->v_bufferexpn = new_word;
+  else if (kind == WORD_Assign)
+    word->v_assign = new_word;
+  else if (kind == WORD_Pattern)
+    word->v_pattern = new_word;
 }
 
-void ast_sequence_append(ASTSequence *head, ASTSequence *new_sequence) {
-  ASTSequence *tmp = head;
+void ast_word_append(ASTWord *head, ASTWord *new_word) {
+  ASTWord *tmp = head;
   while (tmp->next != NULL)
     tmp = tmp->next;
-  tmp->next = new_sequence;
+  tmp->next = new_word;
 }
 
-void delete_ast_sequence(ASTSequence *sequence) {
-  if (sequence->kind == SEQ_Word)
-    delete_ast_word(sequence->v_word);
-  else if (sequence->kind == SEQ_Redir)
-    delete_ast_redir(sequence->v_redir);
-  else if (sequence->kind == SEQ_String || sequence->kind == SEQ_WordExpn)
-    delete_ast_wordexpn(sequence->v_wordexpn);
-  else if (sequence->kind == SEQ_Assign)
-    delete_ast_assign(sequence->v_assign);
-  else if (sequence->kind == SEQ_Pattern)
-    delete_ast_pattern(sequence->v_pattern);
-  gc_decref(sequence);
+void delete_ast_word(ASTWord *word) {
+  if (word->kind == WORD_Buffer)
+    delete_ast_buffer(word->v_buffer);
+  else if (word->kind == WORD_Redir)
+    delete_ast_redir(word->v_redir);
+  else if (word->kind == WORD_String || word->kind == WORD_BufferExpn)
+    delete_ast_bufferexpn(word->v_bufferexpn);
+  else if (word->kind == WORD_Assign)
+    delete_ast_assign(word->v_assign);
+  else if (word->kind == WORD_Pattern)
+    delete_ast_pattern(word->v_pattern);
+  gc_decref(word);
 }
 
-void delete_ast_sequence_chain(ASTSequence *head) {
-  ASTSequence *tmp = head;
+void delete_ast_word_chain(ASTWord *head) {
+  ASTWord *tmp = head;
   while (tmp) {
-    ASTSequence *to_free = tmp;
+    ASTWord *to_free = tmp;
     tmp = tmp->next;
-    delete_ast_sequence(to_free);
+    delete_ast_word(to_free);
   }
 }
 
@@ -412,16 +412,16 @@ ASTUntilLoop *new_ast_untilloop(ASTCompoundList *cond, ASTCompoundList *body) {
   return untilloop;
 }
 
-ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTCompoundList *body) {
+ASTForLoop *new_ast_forloop(ASTBuffer *buffer, ASTBuffer *iter, ASTCompoundList *body) {
   ASTForLoop *forloop = gc_alloc(sizeof(ASTForLoop));
   gc_incref(forloop);
-  forloop->name = gc_incref(word);
+  forloop->name = gc_incref(buffer);
   forloop->iter = gc_incref(iter);
   forloop->body = gc_incref(body);
   return forloop;
 }
 
-ASTCaseCond *new_ast_casecond(ASTWord *discrim) {
+ASTCaseCond *new_ast_casecond(ASTBuffer *discrim) {
   ASTCaseCond *casecond = gc_alloc(sizeof(ASTCaseCond));
   gc_incref(casecond);
   casecond->discrim = gc_incref(discrim);
@@ -450,14 +450,14 @@ void delete_ast_untilloop(ASTUntilLoop *untilloop) {
 }
 
 void delete_ast_forloop(ASTForLoop *forloop) {
-  delete_ast_word(forloop->name);
-  delete_ast_word_chain(forloop->iter);
+  delete_ast_buffer(forloop->name);
+  delete_ast_buffer_chain(forloop->iter);
   delete_ast_compound_list(forloop->body);
   gc_decref(forloop);
 }
 
 void delete_ast_casecond(ASTCaseCond *casecond) {
-  delete_ast_word(casecond->discrim);
+  delete_ast_buffer(casecond->discrim);
   struct ASTCasePair *tmp = casecond->pairs;
   while (tmp) {
     struct ASTCasePair *to_free = tmp;
@@ -573,7 +573,7 @@ void delete_ast_bracket(ASTBracket *bracket) {
   gc_decref(bracket);
 }
 
-ASTFuncDef *new_ast_funcdef(ASTWord *name, ASTCompound *body, ASTRedir *redir) {
+ASTFuncDef *new_ast_funcdef(ASTBuffer *name, ASTCompound *body, ASTRedir *redir) {
   ASTFuncDef *funcdef = gc_alloc(sizeof(ASTFuncDef));
   gc_incref(funcdef);
   funcdef->name = gc_incref(name);

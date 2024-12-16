@@ -7,7 +7,7 @@
 #include "parser.tab.h"
 #include "memory.h"
 
-static ASTWord *current_string = NULL;
+static ASTBuffer *current_string = NULL;
 void append_char_to_current_string(char ch);
 void blank_current_string(void);
 void init_current_string(void);
@@ -20,7 +20,7 @@ ndigit [1-9]
 zdigit [0-9]
 opt_ws [ \t\n\r]*
 specparam [@$*#?!0-]
-word [^ \t;|&<>(){}]+
+buffer [^ \t;|&<>(){}]+
 expnpunct [:=?+%#-]{1,2}
 
 %s DOLLAR EXPN SQOUTE DQOUTE TICK ARITH BRACK
@@ -30,6 +30,7 @@ expnpunct [:=?+%#-]{1,2}
 ^"#".+$		     ;
 
 [ \t]+		     ;
+[\r\n]+		     { return NEWLINE; }
 
 "("		     { return LPAREN; }
 ")"		     { return RPAREN; }
@@ -58,7 +59,7 @@ expnpunct [:=?+%#-]{1,2}
 <BRACK>"]"	     { BEGIN INITIAL; return BRACK_END; }
 
 "&"		     { return AMPR; }
-";"|[\r\n]+	     { return SEMI; }
+";"		     { return SEMI; }
 ";;"		     { return DSEMI; }
 "||"		     { return DISJ; }
 "&&" 		     { return CONJ; }
@@ -94,12 +95,12 @@ expnpunct [:=?+%#-]{1,2}
 <DQUOTE>[^$`\\"]	     { append_char_to_current_string(yytext[0]); }
 
 <SQUOTE>"'"		     { yy_pop_state(); 
-			       yylval.wordval = gc_incref(current_string); 
+			       yylval.bufferval = gc_incref(current_string); 
 			       blank_current_string(); 
 			       return QSTRING; 
 			     }
 <DQUOTE>"\""		     { yy_pop_state(); 
-			       yylval.wordval = gc_incref(current_string);
+			       yylval.bufferval = gc_incref(current_string);
 			       blank_current_string();
 			       return STRING_END; }
 <TICK>"`"		     { yy_pop_state(); return TICK_END; }
@@ -140,39 +141,39 @@ expnpunct [:=?+%#-]{1,2}
 
 <DOLLAR>[1-9]+	     { yylval.numval = atoi(yytext); yy_pop_state(); return ARGNUM; }
 <DOLLAR>{specparam}  { yylval.paramval = yytext[0]; yy_pop_state(); return SPECPARAM; }
-<DOLLAR>{ident}      { yylval.wordval = new_ast_word(yytext, yyleng); yy_pop_state(); return PARAM_IDENTIFIER; }
+<DOLLAR>{ident}      { yylval.bufferval = new_ast_buffer(yytext, yyleng); yy_pop_state(); return PARAM_IDENTIFIER; }
 <DOLLAR>"{"	     { yy_push_state(YYSTATE); BEGIN EXPN; return EXPN_START; }
 
 
 <EXPN>"}"	     { yy_pop_state(); return EXPN_END; }
-<EXPN>{ident} 	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng); 
+<EXPN>{ident} 	     { yylval.bufferval = new_ast_buffer((uint8_t*)yytext, yyleng); 
 			return EXPN_IDENTIFIER; }
-<EXPN>{word}	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng); 
+<EXPN>{buffer}	     { yylval.bufferval = new_ast_buffer((uint8_t*)yytext, yyleng); 
 			return EXPN_WORD;  }
-<EXPN>{expnpunct}    { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
+<EXPN>{expnpunct}    { yylval.bufferval = new_ast_buffer((uint8_t*)yytext, yyleng);
 			return EXPN_PUNCT; }
 
-{ident}/"="	     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
+{ident}/"="	     { yylval.bufferval = new_ast_buffer((uint8_t*)yytext, yyleng);
 			return ANCHORED_IDENTIFIER; 	}
-{ident}/"()"         { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
+{ident}/"()"         { yylval.bufferval = new_ast_buffer((uint8_t*)yytext, yyleng);
                         return FNNAME_IDENTIFIER;       }
-{word} 		     { yylval.wordval = new_ast_word((uint8_t*)yytext, yyleng);
+{buffer} 		     { yylval.bufferval = new_ast_buffer((uint8_t*)yytext, yyleng);
 			return WORD; 			}
 
 
 %%
 
 void append_char_to_current_string(char ch) {
-  ast_word_append_char(current_string, ch);
+  ast_buffer_append_char(current_string, ch);
 }
 
 void blank_current_string(void) {
-  delete_ast_word(current_string);
+  delete_ast_buffer(current_string);
   init_current_string();
 }
 
 void init_current_string(void) {
-  current_string = new_ast_word_blank();
+  current_string = new_ast_buffer_blank();
 }
 
 int yywrap(void) { return 1; }

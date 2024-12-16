@@ -5,12 +5,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef struct ASTWord ASTWord;
+typedef struct ASTBuffer ASTBuffer;
 typedef struct ASTParam ASTParam;
 typedef struct ASTAssign ASTAssign;
-typedef struct ASTWordExpn ASTWordExpn;
+typedef struct ASTBufferExpn ASTBufferExpn;
 typedef struct ASTRedir ASTRedir;
-typedef struct ASTSequence ASTSequence;
+typedef struct ASTWord ASTWord;
 typedef struct ASTSimpleCommand ASTSimpleCommand;
 typedef struct ASTPipeline ASTPipeline;
 typedef struct ASTCompound ASTCompound;
@@ -27,10 +27,10 @@ typedef struct ASTBracket ASTBracket;
 typedef struct ASTPattern ASTPattern;
 typedef struct ASTFuncDef ASTFuncDef;
 
-struct ASTWord {
+struct ASTBuffer {
   uint8_t *buffer;
   size_t length;
-  ASTWord *next;
+  ASTBuffer *next;
 };
 
 struct ASTParam {
@@ -43,7 +43,7 @@ struct ASTParam {
   union {
     int v_positional;
     char v_special;
-    ASTWord *v_variable;
+    ASTBuffer *v_variable;
   };
 };
 
@@ -69,8 +69,8 @@ struct ASTPattern {
   ASTPattern *next;
 };
 
-struct ASTWordExpn {
-  enum WordExpnKind {
+struct ASTBufferExpn {
+  enum BufferExpnKind {
     WEXPN_TildeExpn,
     WEXPN_ParamExpn,
     WEXPN_CommandSubst,
@@ -80,23 +80,23 @@ struct ASTWordExpn {
   } kind;
 
   union {
-    ASTWord *v_word;
+    ASTBuffer *v_buffer;
     ASTParamExpn *v_paramexpn;
-    ASTSequence *v_sequence;
+    ASTWord *v_word;
   };
 
-  ASTWordExpn *next;
+  ASTBufferExpn *next;
 };
 
 struct ASTParamExpn {
   ASTParam *param;
-  ASTWord *punct;
-  ASTSequence *seq;
+  ASTBuffer *punct;
+  ASTWord *seq;
 };
 
 struct ASTAssign {
-  ASTWord *lhs;
-  ASTSequence *rhs;
+  ASTBuffer *lhs;
+  ASTWord *rhs;
 };
 
 struct ASTRedir {
@@ -113,32 +113,32 @@ struct ASTRedir {
   } kind;
 
   int fno;
-  ASTWord *subj;
+  ASTBuffer *subj;
 };
 
-struct ASTSequence {
-  enum SequenceKind {
-    SEQ_Word,
-    SEQ_Redir,
-    SEQ_WordExpn,
-    SEQ_Assign,
-    SEQ_String,
-    SEQ_Pattern,
+struct ASTWord {
+  enum WordKind {
+    WORD_Buffer,
+    WORD_Redir,
+    WORD_BufferExpn,
+    WORD_Assign,
+    WORD_String,
+    WORD_Pattern,
   } kind;
 
   union {
-    ASTWord *v_word;
+    ASTBuffer *v_buffer;
     ASTRedir *v_redir;
-    ASTWordExpn *v_wordexpn;
+    ASTBufferExpn *v_bufferexpn;
     ASTAssign *v_assign;
     ASTPattern *v_pattern;
   };
 
-  ASTSequence *next;
+  ASTWord *next;
 };
 
 struct ASTSimpleCommand {
-  ASTSequence *argv;
+  ASTWord *argv;
   size_t nargs;
   ASTRedir *redir;
   ASTSimpleCommand *next;
@@ -185,13 +185,13 @@ struct ASTUntilLoop {
 };
 
 struct ASTForLoop {
-  ASTWord *name;
-  ASTWord *iter;
+  ASTBuffer *name;
+  ASTBuffer *iter;
   ASTCompoundList *body;
 };
 
 struct ASTCaseCond {
-  ASTWord *discrim;
+  ASTBuffer *discrim;
   struct ASTCasePair {
     ASTPattern *clauses;
     ASTCompoundList *body;
@@ -236,44 +236,44 @@ struct ASTCompound {
 };
 
 struct ASTFuncDef {
-  ASTWord *name;
+  ASTBuffer *name;
   ASTCompound *body;
   ASTRedir *redir;
 };
 
-ASTWord *new_ast_word(uint8_t *buffer, size_t length);
-ASTWord *new_ast_word_blank(void);
-bool ast_word_compare_string(ASTWord *word, const uint8_t *against);
-bool ast_word_compare_word(ASTWord *word, ASTWord *against);
-void ast_word_append_char(ASTWord *word, char ch);
-void ast_word_append_char(ASTWord *word, uint8_t ch);
-void delete_ast_word(ASTWord *word);
+ASTBuffer *new_ast_buffer(uint8_t *buffer, size_t length);
+ASTBuffer *new_ast_buffer_blank(void);
+bool ast_buffer_compare_string(ASTBuffer *buffer, const uint8_t *against);
+bool ast_buffer_compare_buffer(ASTBuffer *buffer, ASTBuffer *against);
+void ast_buffer_append_char(ASTBuffer *buffer, char ch);
+void ast_buffer_append_char(ASTBuffer *buffer, uint8_t ch);
+void delete_ast_buffer(ASTBuffer *buffer);
 ASTParam *new_ast_param(enum ParamKind kind, void *hook);
 void ast_param_append(ASTParam *head, ASTParam *new_param);
 void delete_ast_param(ASTParam *param);
-ASTWordExpn *new_ast_wordexpn(enum WordExpnKind kind, void *hook);
-void ast_wordexpn_append(ASTWordExpn *head, ASTWordExpn *new_wordexpn);
-void delete_ast_wordexpn(ASTWordExpn *wordexpn);
-void delete_ast_wordexpn_chain(ASTWordExpn *head);
-ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTWord *punct,
-                                ASTSequence *seq);
+ASTBufferExpn *new_ast_bufferexpn(enum BufferExpnKind kind, void *hook);
+void ast_bufferexpn_append(ASTBufferExpn *head, ASTBufferExpn *new_bufferexpn);
+void delete_ast_bufferexpn(ASTBufferExpn *bufferexpn);
+void delete_ast_bufferexpn_chain(ASTBufferExpn *head);
+ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTBuffer *punct,
+                                ASTWord *seq);
 void delete_ast_paramexpn(ASTParamExpn *paramexpn);
-ASTAssign *new_ast_assign(ASTWord *lhs, ASTSequence *rhs);
+ASTAssign *new_ast_assign(ASTBuffer *lhs, ASTWord *rhs);
 void delete_ast_assign(ASTAssign *assign);
-ASTWord *ast_digit_to_word(long digit);
-void ast_word_append(ASTWord *word, ASTWord *new_word);
-void delete_ast_word_chain(ASTWord *head);
-ASTSimpleCommand *new_ast_simple_command(ASTSequence *argv0);
+ASTBuffer *ast_digit_to_buffer(long digit);
+void ast_buffer_append(ASTBuffer *buffer, ASTBuffer *new_buffer);
+void delete_ast_buffer_chain(ASTBuffer *head);
+ASTSimpleCommand *new_ast_simple_command(ASTWord *argv0);
 void ast_simple_command_append(ASTSimpleCommand *head,
                                ASTSimpleCommand *new_command);
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd);
 void delete_ast_simple_command_chain(ASTSimpleCommand *head);
-ASTRedir *new_ast_redir(enum RedirKind kind, ASTWord *subj);
+ASTRedir *new_ast_redir(enum RedirKind kind, ASTBuffer *subj);
 void delete_ast_redir(ASTRedir *redir);
-ASTSequence *new_ast_sequence(enum SequenceKind kind, void *new_sequence);
-void ast_sequence_append(ASTSequence *sequence, ASTSequence *new_sequence);
-void delete_ast_sequence(ASTSequence *sequence);
-void delete_ast_sequence_chain(ASTSequence *head);
+ASTWord *new_ast_word(enum WordKind kind, void *new_word);
+void ast_word_append(ASTWord *word, ASTWord *new_word);
+void delete_ast_word(ASTWord *word);
+void delete_ast_word_chain(ASTWord *head);
 ASTPipeline *new_ast_pipeline(ASTSimpleCommand *head);
 void ast_pipeline_append(ASTPipeline *head, ASTPipeline *new_pipeline);
 void delete_ast_pipeline_chain(ASTPipeline *head);
@@ -288,8 +288,8 @@ void delete_ast_compound(ASTCompound *compound);
 void delete_ast_compound_chain(ASTCompound *head);
 ASTWhileLoop *new_ast_whileloop(ASTCompoundList *cond, ASTCompoundList *body);
 ASTUntilLoop *new_ast_untilloop(ASTCompoundList *cond, ASTCompoundList *body);
-ASTForLoop *new_ast_forloop(ASTWord *word, ASTWord *iter, ASTCompoundList *body);
-ASTCaseCond *new_ast_casecond(ASTWord *discrim);
+ASTForLoop *new_ast_forloop(ASTBuffer *buffer, ASTBuffer *iter, ASTCompoundList *body);
+ASTCaseCond *new_ast_casecond(ASTBuffer *discrim);
 ASTIfCond *new_ast_ifcond(void);
 void delete_ast_whileloop(ASTWhileLoop *whileloop);
 void delete_ast_untilloop(ASTUntilLoop *untilloop);
@@ -309,7 +309,7 @@ void delete_ast_charrange(ASTCharRange *charrange);
 void delete_ast_charrange_chain(ASTCharRange *head);
 ASTBracket *new_ast_bracket(ASTCharRange *ranges, bool negate);
 void delete_ast_bracket(ASTBracket *bracket);
-ASTFuncDef *new_ast_funcdef(ASTWord *name, ASTCompound *body, ASTRedir *redir);
+ASTFuncDef *new_ast_funcdef(ASTBuffer *name, ASTCompound *body, ASTRedir *redir);
 void delete_ast_funcdef(ASTFuncDef funcdef);
 ASTCompoundList *new_ast_compound_list(ASTList *head);
 void delete_ast_compound_list(ASTCompoundList *compoundlist);

@@ -26,15 +26,15 @@ void walk_tree(ASTList*);
   int numval;
   char paramval;
   char charval;
-  ASTWord *wordval;
+  ASTBuffer *bufferval;
   ASTParam *astparamval;
-  ASTWordExpn *wordexpnval;
+  ASTBufferExpn *bufferexpnval;
   ASTPattern *patternval;
   ASTRedir *redirval;
   ASTCommand *cmdval;
   ASTSimpleCommand *simplecmdval;
   ASTPipeline *pipelineval;
-  ASTSequence *sequenceval;
+  ASTWord *wordval;
   ASTList *listval;
   ASTCompound *compoundval;
   ASTCaseCond *casecondval;
@@ -64,7 +64,7 @@ void walk_tree(ASTList*);
 %type <cmdval> command
 %type <simplecmdval> simple_command
 %type <redirval> redir
-%type <sequenceval> sequence
+%type <wordval> word
 %type <pipelineval> pipeline
 %type <compoundval> compound_command
 %type <listval> list
@@ -78,7 +78,7 @@ void walk_tree(ASTList*);
 %type <forloopval> for_loop
 %type <whileloopval> while_loop
 
-%type <wordval> WORD ANCHORED_IDENTIFIER FNNAME_IDENTIFIER PARAM_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT
+%type <bufferval> WORD ANCHORED_IDENTIFIER FNNAME_IDENTIFIER PARAM_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT
 %type <numval> DIGIT_REDIR
 %type <charval> BRACK_CHAR
 
@@ -91,30 +91,34 @@ squash: %empty
       | list				{ walk_tree($1); }
       ;
 
-compound_command: compound_command SEMI { $1->term = LIST_Semi; }
-		| compound_command AMPR { $1->term = LIST_Amper; }
-		| list			{ $$ = new_ast_compound(COMPOUND_List, $1); }
-		| pipeline		{ $$ = new_ast_compound(COMPOUND_Pipeline, $1); }
-		| LCURLY compound_command RCURLY { $$ = new_ast_compound(COMPOUND_Group, $2); }
-		| LPAREN compound_command SEMI RPAREN { $$ = new_ast_compound(COMPOUND_Subshell, $2); }
+compound_command: list					{ $$ = new_ast_compound(COMPOUND_List, $1); }
+		| LPAREN compound_list RPAREN 		{ $$ = new_ast_compound(COMPOUND_Subshell, $2); }
+		| LCURLY compound_list SEMI RCURLY 	{ $$ = new_ast_compound(COMPOUND_Group, $2); }
+		| LCURLY compound_list NEWLINE RCURLY   { $$ = new_ast_compound(COMPOUND_Group, $2);  }
 		;
 
-list: list DISJ compound_command	{ $3->sep = LIST_Or; ast_compound_append($1->commands, $3); }
-    | list CONJ compound_command	{ $3->sep = LIST_And; ast_compound_append($1->commands, $3); }
-    | compound_command			{ $$ = new_ast_list($1); }
+compound_list: compound_list NEWLINE list	{ ast_list_append($1->lists, $2); $1->nlists++; }
+	     | list				{ $$ = new_ast_compound_list($1); }
+	     ;
+
+list: list DISJ pipeline		{ $3->sep = SEP_Or; ast_compound_append($1->commands, $3); }
+    | list CONJ pipeline		{ $3->sep = SEP_And; ast_compound_append($1->commands, $3); }
+    | pipeline				{ $$ = new_ast_list($1); }
     ;
 
-pipeline: pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
+pipeline: pipeline SEMI			{ $1->term = TERM_Semi; }
+	| pipeline AMPR			{ $1->term = TERM_Amper; }
+	| pipeline PIPE simple_command  { ast_simple_command_append($1->commands, $3); $1->ncommands++; }
 	| simple_command		{ $$ = new_ast_pipeline($1); }
 	;
 
-simple_command: simple_command sequence	{ ast_sequence_append($1->argv, $2); $1->nargs++; }
-     	      | sequence		{ $$ = new_ast_simple_command($1); }
+simple_command: simple_command word	{ ast_word_append($1->argv, $2); $1->nargs++; }
+     	      | word		{ $$ = new_ast_simple_command($1); }
 	      ;
 
-sequence: WORD				{ $$ = new_ast_sequence(SEQ_Word, $1); }
-        | redir				{ $$ = new_ast_sequence(SEQ_Redir, $1); }
-	| patterns			{ $$ = new_ast_sequence(SEQ_Pattern, $1; }
+word: WORD				{ $$ = new_ast_word(WORD_Buffer, $1); }
+        | redir				{ $$ = new_ast_word(WORD_Redir, $1); }
+	| patterns			{ $$ = new_ast_word(WORD_Pattern, $1; }
         ;
 
 redir: DIGIT_REDIR LANGLE WORD		{ $$ = new_ast_redir(REDIR_Out, $3); $$->fno = $1; }
@@ -162,11 +166,11 @@ fprintf(stderr, "%s\n", msg);
 }
 
 void walk_simple_command(ASTSimpleCommand *cmd) {
-  ASTSequence *tmp = cmd->argv;
+  ASTWord *tmp = cmd->argv;
   while (tmp) {
-    if (tmp->kind == SEQ_Word)
-      printf("%s\n---=\n", tmp->v_word->buffer);
-    else if (tmp->kind == SEQ_Redir) {
+    if (tmp->kind == WORD_Buffer)
+      printf("%s\n---=\n", tmp->v_buffer->buffer);
+    else if (tmp->kind == WORD_Redir) {
       printf("%s\n", tmp->v_redir->subj->buffer);
       printf("%i\n---=\n", tmp->v_redir->fno);
     }
@@ -185,13 +189,13 @@ void walk_pipeline(ASTPipeline *pipeline) {
 void walk_tree(ASTList *list) {
   ASTPipeline *pipeline = list->commands;
   while (pipeline) {
-    if (pipeline->sep == LIST_And)
+    if (pipeline->sep == SEP_And)
       printf("-And-\n");
-    else if (pipeline->sep == LIST_Or)
+    else if (pipeline->sep == SEP_Or)
       printf("-Or-\n");
-    if (pipeline->term == LIST_Semi)
+    if (pipeline->term == TERM_Semi)
       printf("-Semi-\n");
-    else if (pipeline->term == LIST_Amper)
+    else if (pipeline->term == TERM_Amper)
       printf("-Amper-\n");
     walk_pipeline(pipeline);
     pipeline = pipeline->next;
