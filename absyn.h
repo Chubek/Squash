@@ -8,7 +8,7 @@
 typedef struct ASTBuffer ASTBuffer;
 typedef struct ASTParam ASTParam;
 typedef struct ASTAssign ASTAssign;
-typedef struct ASTBufferExpn ASTBufferExpn;
+typedef struct ASTWordExpn ASTWordExpn;
 typedef struct ASTRedir ASTRedir;
 typedef struct ASTWord ASTWord;
 typedef struct ASTSimpleCommand ASTSimpleCommand;
@@ -69,8 +69,8 @@ struct ASTPattern {
   ASTPattern *next;
 };
 
-struct ASTBufferExpn {
-  enum BufferExpnKind {
+struct ASTWordExpn {
+  enum WordExpnKind {
     WEXPN_TildeExpn,
     WEXPN_ParamExpn,
     WEXPN_CommandSubst,
@@ -85,7 +85,7 @@ struct ASTBufferExpn {
     ASTWord *v_word;
   };
 
-  ASTBufferExpn *next;
+  ASTWordExpn *next;
 };
 
 struct ASTParamExpn {
@@ -120,7 +120,7 @@ struct ASTWord {
   enum WordKind {
     WORD_Buffer,
     WORD_Redir,
-    WORD_BufferExpn,
+    WORD_WordExpn,
     WORD_Assign,
     WORD_String,
     WORD_Pattern,
@@ -129,7 +129,7 @@ struct ASTWord {
   union {
     ASTBuffer *v_buffer;
     ASTRedir *v_redir;
-    ASTBufferExpn *v_bufferexpn;
+    ASTWordExpn *v_wordexpn;
     ASTAssign *v_assign;
     ASTPattern *v_pattern;
   };
@@ -251,10 +251,10 @@ void delete_ast_buffer(ASTBuffer *buffer);
 ASTParam *new_ast_param(enum ParamKind kind, void *hook);
 void ast_param_append(ASTParam *head, ASTParam *new_param);
 void delete_ast_param(ASTParam *param);
-ASTBufferExpn *new_ast_bufferexpn(enum BufferExpnKind kind, void *hook);
-void ast_bufferexpn_append(ASTBufferExpn *head, ASTBufferExpn *new_bufferexpn);
-void delete_ast_bufferexpn(ASTBufferExpn *bufferexpn);
-void delete_ast_bufferexpn_chain(ASTBufferExpn *head);
+ASTWordExpn *new_ast_wordexpn(enum WordExpnKind kind, void *hook);
+void ast_wordexpn_append(ASTWordExpn *head, ASTWordExpn *new_wordexpn);
+void delete_ast_wordexpn(ASTWordExpn *wordexpn);
+void delete_ast_wordexpn_chain(ASTWordExpn *head);
 ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTBuffer *punct,
                                 ASTWord *seq);
 void delete_ast_paramexpn(ASTParamExpn *paramexpn);

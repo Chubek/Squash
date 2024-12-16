@@ -28,7 +28,7 @@ void walk_tree(ASTList*);
   char charval;
   ASTBuffer *bufferval;
   ASTParam *astparamval;
-  ASTBufferExpn *bufferexpnval;
+  ASTWordExpn *wordexpnval;
   ASTPattern *patternval;
   ASTRedir *redirval;
   ASTCommand *cmdval;
