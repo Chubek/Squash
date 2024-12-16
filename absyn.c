@@ -115,7 +115,7 @@ ASTWordExpn *new_ast_wordexpn(enum WordExpnKind kind, void *hook) {
   else if (kind == WEXPN_FieldSplit || kind == WEXPN_Pathname)
     wordexpn->v_buffer = hook;
   else if (kind == WEXPN_CommandSubst || kind == WEXPN_QuoteRemoval)
-    wordexpn->v_word = hook;
+    wordexpn->v_buffer = hook;
 
   return wordexpn;
 }
@@ -135,7 +135,7 @@ void delete_ast_wordexpn(ASTWordExpn *wordexpn) {
     delete_ast_buffer(wordexpn->v_buffer);
   else if (wordexpn->kind == WEXPN_CommandSubst ||
            wordexpn->kind == WEXPN_QuoteRemoval)
-    delete_ast_word(wordexpn->v_word);
+    delete_ast_word(wordexpn->v_buffer);
   gc_decref(wordexpn);
 }
 
@@ -149,12 +149,12 @@ void delete_ast_wordexpn_chain(ASTWordExpn *head) {
 }
 
 ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTBuffer *punct,
-                                ASTWord *seq) {
+                                ASTWord *word) {
   ASTParamExpn *paramexpn = gc_alloc(sizeof(ASTParamExpn));
   gc_incref(paramexpn);
   paramexpn->param = gc_incref(param);
   paramexpn->punct = gc_incref(punct);
-  paramexpn->seq = gc_incref(seq);
+  paramexpn->word = gc_incref(word);
   return paramexpn;
 }
 
@@ -175,13 +175,14 @@ void delete_ast_assign(ASTAssign *assign) {
 void delete_ast_paramexpn(ASTParamExpn *paramexpn) {
   gc_decref(paramexpn->param);
   gc_decref(paramexpn->punct);
-  gc_decref(paramexpn->seq);
+  gc_decref(paramexpn->word);
   gc_decref(paramexpn);
 }
 
-ASTSimpleCommand *new_ast_simple_command(ASTWord *argv0) {
+ASTSimpleCommand *new_ast_simple_command(ASTBuffer *prefix, ASTWord *argv0) {
   ASTSimpleCommand *simplecmd = gc_alloc(sizeof(ASTSimpleCommand));
   gc_incref(simplecmd);
+  simplecmd->prefix = prefix;
   simplecmd->redir = NULL;
   simplecmd->argv = argv0;
   simplecmd->nargs = 1;
@@ -412,7 +413,8 @@ ASTUntilLoop *new_ast_untilloop(ASTCompoundList *cond, ASTCompoundList *body) {
   return untilloop;
 }
 
-ASTForLoop *new_ast_forloop(ASTBuffer *buffer, ASTBuffer *iter, ASTCompoundList *body) {
+ASTForLoop *new_ast_forloop(ASTBuffer *buffer, ASTBuffer *iter,
+                            ASTCompoundList *body) {
   ASTForLoop *forloop = gc_alloc(sizeof(ASTForLoop));
   gc_incref(forloop);
   forloop->name = gc_incref(buffer);
@@ -494,7 +496,8 @@ void ast_casecond_pair_append(ASTCaseCond *casecond, ASTPattern *clauses,
   gc_incref(tmp->next);
 }
 
-void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTCompoundList *cond, ASTCompoundList *body) {
+void ast_ifcond_pair_append(ASTIfCond *ifcond, ASTCompoundList *cond,
+                            ASTCompoundList *body) {
   struct ASTIfPair *tmp = ifcond->pairs;
   while (tmp->next != NULL)
     tmp = tmp->next;
@@ -573,7 +576,8 @@ void delete_ast_bracket(ASTBracket *bracket) {
   gc_decref(bracket);
 }
 
-ASTFuncDef *new_ast_funcdef(ASTBuffer *name, ASTCompound *body, ASTRedir *redir) {
+ASTFuncDef *new_ast_funcdef(ASTBuffer *name, ASTCompound *body,
+                            ASTRedir *redir) {
   ASTFuncDef *funcdef = gc_alloc(sizeof(ASTFuncDef));
   gc_incref(funcdef);
   funcdef->name = gc_incref(name);
@@ -598,4 +602,54 @@ ASTCompoundList *new_ast_compound_list(ASTList *head) {
 void delete_ast_compound_list(ASTCompoundList *compoundlist) {
   delete_ast_list_chain(compoundlist->lists);
   gc_decref(compoundlist);
+}
+
+ASTFactor *new_ast_factor(enum FactorKind kind, void *hook) {
+  ASTFactor *factor = gc_alloc(sizeof(ASTFactor));
+  factor->next = NULL;
+  factor->kind = kind;
+
+  if (kind == FACT_Number)
+    factor->v_number = *((intmax_t *)hook);
+  else if (kind == FACT_ArithExpr)
+    factor->v_arithexpr = hook;
+
+  return factor;
+}
+
+void ast_factor_append(ASTFactor *head, ASTFactor *new_factor) {
+  ASTFactor *tmp = head;
+  while (tmp->next != NULL)
+    tmp = tmp->next;
+  tmp->next = gc_incref(new_factor);
+}
+
+void delete_ast_factor(ASTFactor *factor) {
+  if (factor->kind == FACT_ArithExpr)
+    delete_ast_arithexpr(factor->v_arithexpr);
+  gc_decref(factor);
+}
+
+void delete_ast_factor_chain(ASTFactor *head) {
+  ASTFactor *tmp = head;
+  while (tmp) {
+    ASTFactor *to_free = tmp;
+    tmp = tmp->next;
+    delete_ast_factor(to_free);
+  }
+}
+
+ASTArithExpr *new_ast_arithexpr(enum OperatorKind op, ASTFactor *left,
+                                ASTFactor *right) {
+  ASTArithExpr *arithexpr = gc_alloc(sizeof(ASTArithExpr));
+  arithexpr->op = op;
+  arithexpr->left = gc_incref(left);
+  arithexpr->right = gc_incref(right);
+  return arithexpr;
+}
+
+void delete_ast_arithexpr(ASTArithExpr *arithexpr) {
+  delete_ast_factor_chain(arithexpr->left);
+  delete_ast_factor_chain(arithexpr->right);
+  gc_decref(arithexpr);
 }
