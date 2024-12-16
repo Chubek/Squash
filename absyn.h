@@ -75,18 +75,17 @@ struct ASTWordExpn {
     WEXPN_TildeExpn,
     WEXPN_ParamExpn,
     WEXPN_CommandSubst,
-    WEXPN_FieldSplit,
-    WEXPN_Pathname,
-    WEXPN_QuoteRemoval,
     WEXPN_ArithExpr,
+    WEXPN_Pattern,
+    WEXPN_Text,
   } kind;
 
   union {
     ASTBuffer *v_buffer;
     ASTParamExpn *v_paramexpn;
-    ASTWord *v_buffer;
-    ASTPattern *v_pattern;
     ASTArithExpr *v_arithexpr;
+    ASTPattern *v_pattern;
+    ASTCompound *v_compound;
   };
 
   ASTWordExpn *next;
@@ -120,15 +119,14 @@ struct ASTWord {
     WORD_Buffer,
     WORD_Redir,
     WORD_WordExpn,
+    WORD_QString,
     WORD_String,
-    WORD_Pattern,
   } kind;
 
   union {
     ASTBuffer *v_buffer;
     ASTRedir *v_redir;
     ASTWordExpn *v_wordexpn;
-    ASTPattern *v_pattern;
   };
 
   ASTWord *next;
@@ -209,6 +207,7 @@ struct ASTIfCond {
 struct ASTCompound {
   enum CompoundKind {
     COMPOUND_List,
+    COMPOUND_SimpleCommand,
     COMPOUND_Pipeline,
     COMPOUND_Subshell,
     COMPOUND_Group,
@@ -221,6 +220,7 @@ struct ASTCompound {
 
   union {
     ASTList *v_list;
+    ASTSimpleCommand *v_simplecmd;
     ASTCompoundList *v_compoundlist;
     ASTPipeline *v_pipeline;
     ASTForLoop *v_forloop;

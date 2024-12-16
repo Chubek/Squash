@@ -111,11 +111,15 @@ ASTWordExpn *new_ast_wordexpn(enum WordExpnKind kind, void *hook) {
   wordexpn->next = NULL;
 
   if (kind == WEXPN_ParamExpn)
-    wordexpn->v_paramexpn = hook;
-  else if (kind == WEXPN_FieldSplit || kind == WEXPN_Pathname)
-    wordexpn->v_buffer = hook;
-  else if (kind == WEXPN_CommandSubst || kind == WEXPN_QuoteRemoval)
-    wordexpn->v_buffer = hook;
+    wordexpn->v_paramexpn = gc_incref(hook);
+  else if (kind == WEXPN_Text)
+    wordexpn->v_buffer = gc_incref(hook);
+  else if (kind == WEXPN_CommandSubst)
+    wordexpn->v_compound = gc_incref(hook);
+  else if (kind == WEXPN_ArithExpr)
+    wordexpn->v_arithexpr = gc_incref(hook);
+  else if (kind == WEXPN_Pattern)
+    wordexpn->v_pattern = gc_incref(hook);
 
   return wordexpn;
 }
@@ -130,12 +134,14 @@ void ast_wordexpn_append(ASTWordExpn *head, ASTWordExpn *new_wordexpn) {
 void delete_ast_wordexpn(ASTWordExpn *wordexpn) {
   if (wordexpn->kind == WEXPN_ParamExpn)
     delete_ast_paramexpn(wordexpn->v_paramexpn);
-  else if (wordexpn->kind == WEXPN_FieldSplit ||
-           wordexpn->kind == WEXPN_Pathname)
+  else if (wordexpn->kind == WEXPN_Text)
     delete_ast_buffer(wordexpn->v_buffer);
-  else if (wordexpn->kind == WEXPN_CommandSubst ||
-           wordexpn->kind == WEXPN_QuoteRemoval)
-    delete_ast_word(wordexpn->v_buffer);
+  else if (wordexpn->kind == WEXPN_CommandSubst)
+    delete_ast_compound(wordexpn->v_buffer);
+  else if (wordexpn->kind == WEXPN_Pattern)
+    delete_ast_pattern(wordexpn->v_pattern);
+  else if (wordexpn->kind == WEXPN_ArithExpr)
+    delete_ast_arithexpr(wordexpn->v_arithexpr);
   gc_decref(wordexpn);
 }
 
@@ -156,20 +162,6 @@ ASTParamExpn *new_ast_paramexpn(ASTParam *param, ASTBuffer *punct,
   paramexpn->punct = gc_incref(punct);
   paramexpn->word = gc_incref(word);
   return paramexpn;
-}
-
-ASTAssign *new_ast_assign(ASTBuffer *lhs, ASTWord *rhs) {
-  ASTAssign *assign = gc_alloc(sizeof(ASTAssign));
-  gc_incref(assign);
-  assign->lhs = gc_incref(lhs);
-  assign->rhs = gc_incref(rhs);
-  return assign;
-}
-
-void delete_ast_assign(ASTAssign *assign) {
-  gc_decref(assign->lhs);
-  gc_decref(assign->rhs);
-  gc_decref(assign);
 }
 
 void delete_ast_paramexpn(ASTParamExpn *paramexpn) {
@@ -201,6 +193,8 @@ void ast_simple_command_append(ASTSimpleCommand *head,
 void delete_ast_simple_command(ASTSimpleCommand *simplecmd) {
   if (simplecmd->redir != NULL)
     delete_ast_redir(simplecmd->redir);
+  if (simplemcd->prefix != NULL)
+    delete_ast_buffer(simplecmd->buffer);
   delete_ast_word_chain(simplecmd->argv);
   gc_decref(simplecmd);
 }
@@ -238,16 +232,12 @@ ASTWord *new_ast_word(enum WordKind kind, void *new_word) {
   word->kind = kind;
   word->next = NULL;
 
-  if (kind == WORD_Buffer)
-    word->v_buffer = new_word;
+  if (kind == WORD_Buffer || kind == WORD_QString)
+    word->v_buffer = gc_incref(new_word);
   else if (kind == WORD_Redir)
-    word->v_redir = new_word;
+    word->v_redir = gc_incref(new_word);
   else if (kind == WORD_WordExpn || kind == WORD_String)
-    word->v_wordexpn = new_word;
-  else if (kind == WORD_Assign)
-    word->v_assign = new_word;
-  else if (kind == WORD_Pattern)
-    word->v_pattern = new_word;
+    word->v_wordexpn = gc_incref(new_word);
 }
 
 void ast_word_append(ASTWord *head, ASTWord *new_word) {
@@ -348,6 +338,8 @@ ASTCompound *new_ast_compound(enum CompoundKind kind, void *hook) {
 
   if (kind == COMPOUND_List)
     compound->v_list = gc_incref(hook);
+  else if (kind == COMPOUND_SimpleCommand)
+    compound->v_simplecmd = gc_incref(hook);
   else if (kind == COMPOUND_Subshell || kind == COMPOUND_Group)
     compound->v_compoundlist = gc_incref(hook);
   else if (kind == COMPOUND_Pipeline)
@@ -372,9 +364,15 @@ void ast_compound_append(ASTCompound *head, ASTCompound *new_compound) {
 }
 
 void delete_ast_compound(ASTCompound *compound) {
-  if (compound->kind == COMPOUND_List || compound->kind == COMPOUND_Subshell ||
-      compound->kind == COMPOUND_Group)
-    delete_ast_list(compound->v_list);
+  if (compound->kind == COMPOUND_List)
+    delete_ast_list_chain(compound->v_list);
+  else if (compound->kind == COMPOUND_SimpleCommand)
+    delete_ast_simple_command(compound->v_simplecmd);
+  else if (compound->kind == COMPOUND_Subshell ||
+           compound->kind == COMPOUND_Group)
+    delete_ast_compoundlist(compound->v_compoundlist);
+  else if (compound->kind == COMPOUND_Pipeline)
+    delete_ast_pipeline_chain(compound->v_pipeline);
   else if (compound->kind == COMPOUND_WhileLoop)
     delete_ast_whileloop(compound->v_whileloop);
   else if (compound->kind == COMPOUND_UntilLoop)
