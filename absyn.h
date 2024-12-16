@@ -117,11 +117,7 @@ struct ASTRedir {
     REDIR_NoClobber,
   } kind;
 
-  union {
-     ASTBuffer *v_subj;
-     ASTHereDoc *v_heredoc;
-  };
-
+  ASTRedir *subj;
   int fno;
 };
 
@@ -359,8 +355,4 @@ void delete_ast_factor_chain(ASTFactor *head);
 ASTArithExpr *new_ast_arithexpr(enum OperatorKind op, ASTFactor *left,
                                 ASTFactor *right);
 void delete_ast_arithexpr(ASTArithExpr *arithexpr);
-ASTHereDoc *new_ast_heredoc(ASTBuffer *text, ASTBuffer *delim);
-void ast_heredoc_append(ASTHereDoc *head, ASTHereDoc *new_heredoc);
-void delete_ast_heredoc(ASTHereDoc *heredoc);
-void delete_ast_heredoc_chain(ASTHereDoc *head);
 #endif

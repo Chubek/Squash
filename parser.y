@@ -31,7 +31,6 @@ void walk_tree(ASTList*);
   ASTWordExpn *wordexpnval;
   ASTPattern *patternval;
   ASTRedir *redirval;
-  ASTCommand *cmdval;
   ASTSimpleCommand *simplecmdval;
   ASTPipeline *pipelineval;
   ASTWord *wordval;
@@ -47,7 +46,7 @@ void walk_tree(ASTList*);
   ASTFuncDef *funcdefval;
 }
 
-%token WORD FNNAME_IDENTIFIER DOLLAR_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT
+%token BUFFER FNNAME_IDENTIFIER DOLLAR_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT
 %token SEMI AMPR DISJ CONJ PIPE EQUAL
 %token LANGLE RANGLE APPEND DUPIN DUPOUT NCLBR HERESTR HEREDOC
 %token DIGIT_REDIR
@@ -60,6 +59,9 @@ void walk_tree(ASTList*);
 %token FN_PARENS LPAREN RPAREN LCURLY RCURLY
 %token BRACK_START BRACK_END BRACK_CHAR BRACK_DASH BRACK_BANG
 %token TILDE BANG QMARK STAR 
+%token DOLLAR_LPAREN DOLLAR_RPARE
+%token TICK_START TICK_END STRING_START STRING_END QSTRING
+%token HEREDOC_DELIM HEREDOC_TEXT
 
 %type <cmdval> command
 %type <simplecmdval> simple_command
@@ -78,7 +80,7 @@ void walk_tree(ASTList*);
 %type <forloopval> for_loop
 %type <whileloopval> while_loop
 
-%type <bufferval> WORD ANCHORED_IDENTIFIER FNNAME_IDENTIFIER PARAM_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT
+%type <bufferval> BUFFER QSTRING ANCHORED_IDENTIFIER FNNAME_IDENTIFIER PARAM_IDENTIFIER EXPN_IDENTIFIER EXPN_WORD EXPN_PUNCT HEREDOC_TEXT
 %type <numval> DIGIT_REDIR
 %type <charval> BRACK_CHAR
 
@@ -116,27 +118,27 @@ simple_command: simple_command word	{ ast_word_append($1->argv, $2); $1->nargs++
      	      | word		{ $$ = new_ast_simple_command($1); }
 	      ;
 
-word: WORD				{ $$ = new_ast_word(WORD_Buffer, $1); }
-        | redir				{ $$ = new_ast_word(WORD_Redir, $1); }
-	| patterns			{ $$ = new_ast_word(WORD_Pattern, $1; }
-        ;
+word: BUFFER		{ $$ = new_ast_word(WORD_Buffer, $1); }
+    | redir		{ $$ = new_ast_word(WORD_Redir, $1); }
+    | patterns		{ $$ = new_ast_word(WORD_Pattern, $1; }
+    ;
 
-redir: DIGIT_REDIR LANGLE WORD		{ $$ = new_ast_redir(REDIR_Out, $3); $$->fno = $1; }
-     | DIGIT_REDIR RANGLE WORD		{ $$ = new_ast_redir(REDIR_In, $3); $$->fno = $1; }
-     | DIGIT_REDIR DUPIN WORD		{ $$ = new_ast_redir(REDIR_DupIn, $3); $$->fno = $1; }
-     | DIGIT_REDIR DUPOUT WORD		{ $$ = new_ast_redir(REDIR_DupOut, $3); $$->fno = $1; }
-     | DIGIT_REDIR HEREDOC WORD		{ $$ = new_ast_redir(REDIR_HereDoc, $3); $$->fno = $1; }
-     | DIGIT_REDIR HERESTR WORD		{ $$ = new_ast_redir(REDIR_HereStr, $3); $$->fno = $1; }
-     | DIGIT_REDIR NCLBR WORD		{ $$ = new_ast_redir(REDIR_NoClobber, $3); $$->fno = $1; }
-     | DIGIT_REDIR APPEND WORD		{ $$ = new_ast_redir(REDIR_Append, $3); $$->fno = $1; }
-     | APPEND WORD              { $$ = new_ast_redir(REDIR_Append, $2); }
-     | LANGLE WORD		{ $$ = new_ast_redir(REDIR_Out, $2);    }
-     | RANGLE WORD              { $$ = new_ast_redir(REDIR_In, $2);     }
-     | NCLBR WORD		{ $$ = new_ast_redir(REDIR_NoClobber, $2); }
-     | HEREDOC WORD		{ $$ = new_ast_redir(REDIR_HereDoc, $2);  }
-     | HERESTR WORD		{ $$ = new_ast_redir(REDIR_HereStr, $2);  }
-     | DUPIN WORD		{ $$ = new_ast_redir(REDIR_DupIn, $2);   }
-     | DUPOUT WORD		{ $$ = new_ast_redir(REDIR_DupOut, $2);  }
+redir: DIGIT_REDIR LANGLE WORD				{ $$ = new_ast_redir(REDIR_Out, $3); $$->fno = $1; }
+     | DIGIT_REDIR RANGLE WORD				{ $$ = new_ast_redir(REDIR_In, $3); $$->fno = $1; }
+     | DIGIT_REDIR DUPIN WORD			        { $$ = new_ast_redir(REDIR_DupIn, $3); $$->fno = $1; }
+     | DIGIT_REDIR DUPOUT WORD			      	{ $$ = new_ast_redir(REDIR_DupOut, $3); $$->fno = $1; }
+     | DIGIT_REDIR HEREDOC HEREDOC_DELIM HEREDOC_TEXT 	{ $$ = new_ast_redir(REDIR_HereDoc, $4); $$->fno = $1; }
+     | DIGIT_REDIR HERESTR WORD			        { $$ = new_ast_redir(REDIR_HereStr, $3); $$->fno = $1; }
+     | DIGIT_REDIR NCLBR WORD			        { $$ = new_ast_redir(REDIR_NoClobber, $3); $$->fno = $1; }
+     | DIGIT_REDIR APPEND WORD			        { $$ = new_ast_redir(REDIR_Append, $3); $$->fno = $1; }
+     | APPEND WORD              			{ $$ = new_ast_redir(REDIR_Append, $2); }
+     | LANGLE WORD					{ $$ = new_ast_redir(REDIR_Out, $2);    }
+     | RANGLE WORD              			{ $$ = new_ast_redir(REDIR_In, $2);     }
+     | NCLBR WORD					{ $$ = new_ast_redir(REDIR_NoClobber, $2); }
+     | HEREDOC HEREDOC_DELIM HEREDOC_TEXT		{ $$ = new_ast_redir(REDIR_HereDoc, $3);  }
+     | HERESTR WORD					{ $$ = new_ast_redir(REDIR_HereStr, $2);  }
+     | DUPIN WORD					{ $$ = new_ast_redir(REDIR_DupIn, $2);   }
+     | DUPOUT WORD					{ $$ = new_ast_redir(REDIR_DupOut, $2);  }
      ;
 
 patterns: patterns pattern	{ ast_pattern_append($1, $2); $$ = $1; }

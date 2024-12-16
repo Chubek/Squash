@@ -8,9 +8,16 @@
 #include "memory.h"
 
 static ASTBuffer *current_string = NULL;
+static ASTBuffer *current_heredoc = NULL;
 void append_char_to_current_string(char ch);
 void blank_current_string(void);
 void init_current_string(void);
+
+void append_text_to_current_heredoc(char *text, size_t length);
+void blank_current_heredoc(void);
+void init_current_heredoc(void);
+
+bool is_heredoc_delimiter(char *delim);
 %}
 
 %option stack noyywrap
@@ -23,7 +30,7 @@ specparam [@$*#?!0-]
 buffer [^ \t;|&<>(){}]+
 expnpunct [:=?+%#-]{1,2}
 
-%s DOLLAR EXPN SQOUTE DQOUTE TICK ARITH BRACK
+%s DOLLAR EXPN SQOUTE DQOUTE TICK ARITH BRACK HEREDOC
 
 %%
 
@@ -90,20 +97,23 @@ expnpunct [:=?+%#-]{1,2}
 <TICK,DQUOTE>"\\\""	     { append_char_to_current_string('"'); }
 <TICK,DQUOTE>"\\"	     { append_char_to_current_string('\\'); }
 <TICK,DQUOTE>"\\n"	     { append_char_to_current_string('\n'); }
+<TICK,DQUOTE>"\)"	     { append_char_to_current_string(')'); }
+<TICK,DQUOTE>"\}"	     { append_char_to_current_string('}'); }
 
 <SQOUTE>[^']		     { append_char_to_current_string(yytext[0]); }
-<DQUOTE>[^$`\\"]	     { append_char_to_current_string(yytext[0]); }
+<DQUOTE>[^$`\\"]+	     { yylval.bufferval = new_ast_buffer(yytext, yyleng); return STRING_BUFFER; }
 
 <SQUOTE>"'"		     { yy_pop_state(); 
 			       yylval.bufferval = gc_incref(current_string); 
 			       blank_current_string(); 
 			       return QSTRING; 
 			     }
-<DQUOTE>"\""		     { yy_pop_state(); 
-			       yylval.bufferval = gc_incref(current_string);
-			       blank_current_string();
-			       return STRING_END; }
+<DQUOTE>"\""		     { yy_pop_state(); return STRING_END; }
+
 <TICK>"`"		     { yy_pop_state(); return TICK_END; }
+
+<DQUOTE,TICK>"$("	{ return DOLLAR_LPAREN; }
+<DQUOTE,TICK>")"	{ return DOLLAR_RPAREN; }
 
 [0-9]+/">"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
 [0-9]+/"<"	     { yylval.numval = atoi(yytext); return DIGIT_REDIR; }
@@ -132,10 +142,20 @@ expnpunct [:=?+%#-]{1,2}
 "<"		     { return RANGLE; }
 ">>" 		     { return APPEND; }
 ">|"		     { return NCLBR;  }
-"<<"		     { return HEREDOC; }
+"<<"/[^\n]+	     { BEGIN HEREDOC; return HEREDOC; }
 "<<<"		     { return HERESTR; }
 ">&"		     { return DUPOUT;  }
 "<&"                 { return DUPIN;   }
+
+<HEREDOC>[^\n]+\n    { current_string = yylval.bufferval = new_ast_buffer((uint8_t*)yytext, yyleng); 
+		       return HEREDOC_DELIM; 
+		     }
+<HEREDOC>[^\n]*\n    { if (is_heredoc_delimiter(yytext)) { 
+		          BEGIN INITIAL; blank_current_heredoc();
+		       	  return HEREDOC_TEXT; 
+		       } 
+                       else append_text_to_current_heredoc(yytext, yyleng);            
+		     }
 
 <INITIAL,DQUOTE,TICK>"$" { yy_push_state(YYSTATE); BEGIN DOLLAR; }
 
@@ -174,6 +194,23 @@ void blank_current_string(void) {
 
 void init_current_string(void) {
   current_string = new_ast_buffer_blank();
+}
+
+void append_text_to_current_heredoc(char *string, size_t length) {
+  ast_buffer_append_string(current_heredoc, (uint8_t*)string, length);
+}
+
+void blank_current_heredoc(void) {
+  delete_ast_buffer(current_heredoc);
+  init_current_heredoc();
+}
+
+void init_current_heredoc(void) {
+  current_heredoc = new_ast_buffer_blank();
+}
+
+bool is_heredoc_delimiter(char *delim) {
+  return ast_buffer_compare_string(current_string, delim);
 }
 
 int yywrap(void) { return 1; }
